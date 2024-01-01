@@ -1,17 +1,13 @@
 use core::fmt;
 
-mod plaintext;
-pub use plaintext::PlainText;
-
 pub type Span = std::ops::Range<usize>;
 
-#[must_use]
 pub struct Report<Level> {
     level: Level,
     code: Option<String>,
     message: String,
     /// Annotated section of source code
-    view: Option<SourceView<Level>>,
+    view: Option<SourceView<Lab>>,
     /// Help or note messages
     comments: Vec<(Level, String)>,
 }
@@ -46,7 +42,7 @@ impl<Level> Report<Level> {
     }
 
     pub fn with_code(mut self, code: impl fmt::Display) -> Self {
-        self.code = Some(code.to_string());
+        self.code = Some(format!("{:02}", code));
         self
     }
 
@@ -55,11 +51,6 @@ impl<Level> Report<Level> {
     }
 
     // TODO Comments
-
-    pub fn finish(self) -> Sequence {
-        // TODO Generate Sequence of Elements
-        Sequence { elements: vec![] }
-    }
 }
 
 /// Annotated section of source code
@@ -71,10 +62,7 @@ pub struct SourceView<Level> {
 
 impl<Level> SourceView<Level> {
     pub fn new(source: &'static str) -> Self {
-        Self {
-            source,
-            labels: vec![],
-        }
+        Self { source, labels }
     }
 
     pub fn with_label(mut self, label: Label<Level>) -> Self {
@@ -98,46 +86,14 @@ impl<Level> SourceView<Level> {
 
 pub struct Label<Level> {
     level: Level,
-    span: Span,
     message: String,
 }
 
 impl<Level> Label<Level> {
-    pub fn new(level: Level, span: Span) -> Self {
+    pub fn new(level: Level, message: impl Into<String>) -> Self {
         Self {
             level,
-            span,
-            message: "".into(),
+            message: message.into(),
         }
     }
-
-    pub fn with_message(mut self, message: impl Into<String>) -> Self {
-        self.message = message.into();
-        self
-    }
-
-    pub fn set_message(&mut self, message: impl Into<String>) {
-        self.message = message.into();
-    }
-}
-
-pub struct Sequence {
-    elements: Vec<Element>,
-}
-
-impl Sequence {
-    pub fn write<B: Backend>(&self, backend: &mut B) -> Result<(), B::Error> {
-        backend.write(self)
-    }
-}
-
-pub enum Element {}
-
-pub trait Backend {
-    // type Output;
-    type Error;
-
-    fn write(&mut self, sequence: &Sequence) -> Result<(), Self::Error>;
-
-    // fn render(sequence: &Sequence) -> Result<Self::Output, Self::Error>;
 }
