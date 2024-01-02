@@ -1,5 +1,5 @@
 use ariadne_next::{
-    render::{Color, Element, Inline, TextStyle, ToElement},
+    render::{Element, Inline, IntoElement, RgbColor, TextStyle},
     Label, PlainText, Report, SourceView,
 };
 use std::io::Write;
@@ -92,19 +92,17 @@ enum Level {
     Help,
 }
 
-impl ToElement for Level {
+impl IntoElement for Level {
     fn into_element(self) -> Element {
         let base_style = TextStyle::new().with_bold();
 
         Element::Inline(match self {
-            Level::Error => {
-                Inline::new("error").with_style(base_style.with_fg_color(Color::new(237, 61, 61)))
-            }
+            Level::Error => Inline::new("error")
+                .with_style(base_style.with_fg_color(RgbColor::new(237, 61, 61))),
             Level::Warning => Inline::new("warning")
-                .with_style(base_style.with_fg_color(Color::new(237, 234, 61))),
-            Level::Help => {
-                Inline::new("help").with_style(base_style.with_fg_color(Color::new(61, 161, 237)))
-            }
+                .with_style(base_style.with_fg_color(RgbColor::new(237, 234, 61))),
+            Level::Help => Inline::new("help")
+                .with_style(base_style.with_fg_color(RgbColor::new(61, 161, 237))),
         })
     }
 }

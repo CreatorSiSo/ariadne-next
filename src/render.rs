@@ -1,21 +1,7 @@
 use crate::Backend;
 
-pub struct VStack {
-    pub elements: Vec<Element>,
-}
-
-impl VStack {
-    pub fn new() -> Self {
-        Self { elements: vec![] }
-    }
-
-    pub fn write<B: Backend>(&self, backend: &mut B) -> Result<(), B::Error> {
-        backend.write(self)
-    }
-}
-
 pub enum Element {
-    // TODO VStack should go in here
+    VStack(Vec<Element>),
     HStack(Vec<Element>),
     Container {
         content: Vec<Inline>,
@@ -26,8 +12,22 @@ pub enum Element {
     Inline(Inline),
 }
 
-pub trait ToElement {
+impl Element {
+    pub fn write<B: Backend>(&self, backend: &mut B) -> Result<(), B::Error> {
+        backend.write(self)
+    }
+}
+
+pub trait IntoElement {
     fn into_element(self) -> Element;
+}
+
+// TODO Should this be implemented for everything that implenents Display?
+// TODO How to improve error messages?
+impl<S: Into<String>> IntoElement for S {
+    fn into_element(self) -> Element {
+        Element::Inline(Inline::new(self.into()))
+    }
 }
 
 pub struct Inline {
@@ -49,20 +49,12 @@ impl Inline {
     }
 }
 
-// TODO Should this be implemented for everything that implenents Display?
-// TODO How to improve error messages? ie. for custom Level
-impl<S: Into<String>> ToElement for S {
-    fn into_element(self) -> Element {
-        Element::Inline(Inline::new(self.into()))
-    }
-}
-
 #[derive(Default)]
 pub struct TextStyle {
     /// Color of the text
-    fg_color: Option<Color>,
+    fg_color: Option<RgbColor>,
     /// Color of the background
-    bg_color: Option<Color>,
+    bg_color: Option<RgbColor>,
     /// Additional formatting data
     flags: TextStyleFlags,
 }
@@ -72,12 +64,12 @@ impl TextStyle {
         Self::default()
     }
 
-    pub fn with_fg_color(mut self, color: Color) -> Self {
+    pub fn with_fg_color(mut self, color: RgbColor) -> Self {
         self.fg_color = Some(color);
         self
     }
 
-    pub fn with_bg_color(mut self, color: Color) -> Self {
+    pub fn with_bg_color(mut self, color: RgbColor) -> Self {
         self.bg_color = Some(color);
         self
     }
@@ -111,14 +103,26 @@ enum TextStyleFlags {
     BoldItalic,
 }
 
-// TODO There should probably be some way of using presets (like red, green, yellow, ...)
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+pub enum BasicColor {
+    Unset,
+    Black,
+    Red,
+    Green,
+    Yellow,
+    Blue,
+    Magenta,
+    Cyan,
+    White,
 }
 
-impl Color {
+// TODO There should probably be some way of using presets (like red, green, yellow, ...)
+pub struct RgbColor {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl RgbColor {
     pub fn new(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b }
     }
