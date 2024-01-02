@@ -1,4 +1,7 @@
-use ariadne_next::{Label, PlainText, Report, SourceView};
+use ariadne_next::{
+    render::{Color, Element, Inline, TextStyle, ToElement},
+    Label, PlainText, Report, SourceView,
+};
 use std::io::Write;
 
 // Goal:
@@ -27,13 +30,14 @@ use std::io::Write;
 // error: could not compile `ariadne-rewrite` (lib) due to 2 previous errors
 
 fn main() {
-    enum Level {
-        Error,
-        Warning,
-        Help,
-    }
-
     let source = include_str!("./test.rs.txt");
+    //     let source = "{
+    //     test1
+    //     test2
+    //     test3
+    //     test4
+    // }";
+    // let source = "\ntest";
     let mut backend = PlainText(std::io::stdout().lock());
 
     Report::new(Level::Error)
@@ -50,17 +54,12 @@ fn main() {
 
     Report::new(Level::Help)
         .with_message("you might be missing a type parameter")
-        .with_view(
-            SourceView::new(&source).with_label(
-                Label::new(
-                    // TODO Add separate Kind/Level for labels?
-                    // This could be Kind::Add and control the characters "+++", color, ...
-                    Level::Help,
-                    218..221,
-                )
-                .with_message("not found in this scope"),
-            ),
-        )
+        .with_view(SourceView::new(&source).with_label(Label::new(
+            // TODO Add separate Kind/Level for labels?
+            // This could be Kind::Add and control the characters "+++", color, ...
+            Level::Help,
+            218..221,
+        )))
         .finish()
         .write(&mut backend)
         .unwrap();
@@ -80,4 +79,28 @@ fn main() {
         .finish()
         .write(&mut backend)
         .unwrap();
+}
+
+#[derive(Debug)]
+enum Level {
+    Error,
+    Warning,
+    Help,
+}
+
+impl ToElement for Level {
+    fn into_element(self) -> Element {
+        let base_style = TextStyle::new().with_bold();
+
+        Element::Inline(match self {
+            Level::Error => {
+                Inline::new("error").with_style(base_style.with_fg_color(Color::new(237, 61, 61)))
+            }
+            Level::Warning => Inline::new("warning")
+                .with_style(base_style.with_fg_color(Color::new(237, 234, 61))),
+            Level::Help => {
+                Inline::new("help").with_style(base_style.with_fg_color(Color::new(61, 161, 237)))
+            }
+        })
+    }
 }

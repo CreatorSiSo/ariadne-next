@@ -1,27 +1,35 @@
+#![feature(iter_array_chunks)]
+
 use core::fmt;
+use std::fmt::Debug;
 
 mod plaintext;
 pub use plaintext::PlainText;
 
+pub mod render;
+use render::{Element, Inline, ToElement, VStack};
+
+use crate::render::TextStyle;
+
 pub type Span = std::ops::Range<usize>;
 
 #[must_use]
-pub struct Report<Level> {
+pub struct Report<Level: fmt::Debug> {
     level: Level,
     code: Option<String>,
-    message: String,
+    message: Vec<Element>,
     /// Annotated section of source code
     view: Option<SourceView<Level>>,
     /// Help or note messages
     comments: Vec<(Level, String)>,
 }
 
-impl<Level> Report<Level> {
+impl<Level: ToElement + fmt::Debug> Report<Level> {
     pub fn new(level: Level) -> Self {
         Self {
             level,
             code: None,
-            message: "".into(),
+            message: vec![],
             view: None,
             comments: vec![],
         }
@@ -36,13 +44,13 @@ impl<Level> Report<Level> {
         self.view = Some(view);
     }
 
-    pub fn with_message(mut self, message: impl Into<String>) -> Self {
-        self.message = message.into();
+    pub fn with_message(mut self, message: impl ToElement) -> Self {
+        self.message.push(message.into_element());
         self
     }
 
-    pub fn set_message(&mut self, message: impl Into<String>) {
-        self.message = message.into();
+    pub fn set_message(&mut self, message: impl ToElement) {
+        self.message.push(message.into_element());
     }
 
     pub fn with_code(mut self, code: impl fmt::Display) -> Self {
@@ -56,20 +64,82 @@ impl<Level> Report<Level> {
 
     // TODO Comments
 
-    pub fn finish(self) -> Sequence {
+    pub fn finish(mut self) -> VStack {
+        let mut elements: Vec<Element> = vec![];
+
+        {
+            let mut first_line = vec![self.level.into_element()];
+            if let Some(code) = self.code {
+                // TODO Should the code use the style of self.level?
+                first_line.push(format!("[{code}]").into_element());
+            }
+            first_line.push(": ".into_element());
+            first_line.append(&mut self.message);
+
+            elements.push(Element::HStack(first_line));
+        }
+
+        if let Some(view) = self.view {
+            elements.push(Element::Inline(Inline::new("   ╭─[<unkown>:255:9]")));
+            elements.push(Element::Inline(Inline::new("")));
+
+            // Find smallest span that encloses all label spans
+            let (start, end) = view.labels.iter().fold(
+                (view.source.len(), 0),
+                |(start, end), Label { span, .. }| (start.min(span.start), end.max(span.end)),
+            );
+
+            // TODO Could probably be done better :(
+            let index_start = view.source[..start]
+                .rfind(|c| c == '\n')
+                .map(|i| i + 1)
+                .unwrap_or(start);
+            let offset_end = &view.source[end..].find(|c| c == '\n').unwrap_or(0);
+            let index_end = end + offset_end;
+
+            let content = &view.source[index_start..index_end];
+            // let width = content.lines().map(|line| line.len()).max().unwrap();
+
+            elements.push(Element::HStack(vec![
+                Element::Inline(Inline::new("     ")),
+                Element::Container {
+                    content: vec![Inline::new(content)],
+                    width: None,
+                    height: None,
+                    style: TextStyle::default(),
+                },
+            ]));
+
+            elements.push(Element::Inline(Inline::new("")));
+
+            // TODO How to build Elements for labels?
+            for label in view.labels {
+                elements.push(Element::HStack(vec![
+                    Element::Inline(Inline::new("=> ")),
+                    if label.message.is_empty() {
+                        Element::Inline(Inline::new(format!("<marker label>")))
+                    } else {
+                        Element::Inline(Inline::new(label.message))
+                    },
+                    Element::Inline(Inline::new(format!(" {:?}", label.span))),
+                ]))
+            }
+        }
+
         // TODO Generate Sequence of Elements
-        Sequence { elements: vec![] }
+        VStack { elements }
     }
 }
 
+#[derive(Debug)]
 /// Annotated section of source code
-pub struct SourceView<Level> {
+pub struct SourceView<Level: fmt::Debug> {
     // TODO Should we even store source here?
     source: &'static str,
     labels: Vec<Label<Level>>,
 }
 
-impl<Level> SourceView<Level> {
+impl<Level: fmt::Debug> SourceView<Level> {
     pub fn new(source: &'static str) -> Self {
         Self {
             source,
@@ -96,6 +166,7 @@ impl<Level> SourceView<Level> {
     }
 }
 
+#[derive(Debug)]
 pub struct Label<Level> {
     level: Level,
     span: Span,
@@ -121,23 +192,11 @@ impl<Level> Label<Level> {
     }
 }
 
-pub struct Sequence {
-    elements: Vec<Element>,
-}
-
-impl Sequence {
-    pub fn write<B: Backend>(&self, backend: &mut B) -> Result<(), B::Error> {
-        backend.write(self)
-    }
-}
-
-pub enum Element {}
-
 pub trait Backend {
     // type Output;
     type Error;
 
-    fn write(&mut self, sequence: &Sequence) -> Result<(), Self::Error>;
+    fn write(&mut self, stack: &VStack) -> Result<(), Self::Error>;
 
     // fn render(sequence: &Sequence) -> Result<Self::Output, Self::Error>;
 }

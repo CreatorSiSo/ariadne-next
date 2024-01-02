@@ -1,0 +1,13 @@
+use core::fmt;
+
+pub type Span = std::ops::Range<usize>;
+
+pub struct Report<Level> {
+    level: Level,
+    code: Option<String>,
+    message: String,
+    /// Annotated section of source code
+    view: Option<SourceView<Lab>>,
+    /// Help or note messages
+    comments: Vec<(Level, String)>,
+}
