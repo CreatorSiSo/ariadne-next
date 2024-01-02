@@ -1,5 +1,6 @@
 use crate::Backend;
 
+#[derive(Debug)]
 pub enum Element {
     VStack(Vec<Element>),
     HStack(Vec<Element>),
@@ -29,6 +30,7 @@ impl<S: Into<String>> IntoElement for S {
     }
 }
 
+#[derive(Debug)]
 pub struct Inline {
     pub text: String,
     pub style: TextStyle,
@@ -48,7 +50,7 @@ impl Inline {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct TextStyle {
     /// Color of the text
     fg_color: Option<RgbColor>,
@@ -92,7 +94,7 @@ impl TextStyle {
     // TODO add set_bold and set_italic
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 // TODO How and what information should this store? Bitflags?
 enum TextStyleFlags {
     #[default]
@@ -114,6 +116,7 @@ pub enum BasicColor {
     White,
 }
 
+#[derive(Debug)]
 // TODO There should probably be some way of using presets (like red, green, yellow, ...)
 pub struct RgbColor {
     r: u8,

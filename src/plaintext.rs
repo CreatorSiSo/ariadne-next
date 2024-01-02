@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::render::Element;
+use crate::tree::Element;
 use std::io;
 
 pub struct PlainText<W: io::Write>(pub W);
@@ -89,15 +89,16 @@ fn fill_spaces(lines: &mut [String]) {
 
 #[test]
 fn layout() {
-    use crate::{Backend, Inline, TextStyle};
+    use crate::tree::{Inline, IntoElement, TextStyle};
+    use crate::Backend;
 
     let mut backend = PlainText(Vec::new());
     let element = Element::VStack(vec![
-        Element::Inline(Inline::new("test1")),
+        "test1".into_element(),
         Element::HStack(vec![
-            Element::Inline(Inline::new("1")),
-            Element::Inline(Inline::new(" ")),
-            Element::Inline(Inline::new("2")),
+            "1".into_element(),
+            " ".into_element(),
+            "2".into_element(),
             Element::Box {
                 content: vec![Inline::new("#_#_#_#__#_#_#_##_#_#_#__#_#_#_#")],
                 width: Some(8),

@@ -1,8 +1,10 @@
-use ariadne_next::{
-    render::{Element, Inline, IntoElement, RgbColor, TextStyle},
-    Label, PlainText, Report, SourceView,
+use ariadne_next::{Cache, Label, PlainText, Report, SourceView};
+use std::{
+    collections::HashMap,
+    fs::{self},
+    io::{self, Write},
+    path::PathBuf,
 };
-use std::io::Write;
 
 // Goal:
 // error[E0412]: cannot find type `Lab` in this scope
@@ -31,30 +33,27 @@ use std::io::Write;
 
 #[test]
 fn main() {
-    let source = include_str!("./test.rs.txt");
+    let mut cache = FileCache::new();
     let mut backend = PlainText(Vec::new());
+
+    // TODO Add separate Kind/Level for labels?
+    // This could be Kind::Add and control the characters "+++", color, ...
 
     Report::new(Level::Error)
         .with_code("E0412")
         .with_message("cannot find type `Lab` in this scope")
         .with_view(
-            SourceView::new(&source).with_label(
-                Label::new(Level::Error, 218..221).with_message("not found in this scope"),
-            ),
+            SourceView::new(PathBuf::from("./test.rs.txt"))
+                .with_label(Label::new(218..221).with_message("not found in this scope")),
         )
-        .finish()
+        .finish(&mut cache)
         .write(&mut backend)
         .unwrap();
 
     Report::new(Level::Help)
         .with_message("you might be missing a type parameter")
-        .with_view(SourceView::new(&source).with_label(Label::new(
-            // TODO Add separate Kind/Level for labels?
-            // This could be Kind::Add and control the characters "+++", color, ...
-            Level::Help,
-            218..221,
-        )))
-        .finish()
+        .with_view(SourceView::new(PathBuf::from("./test.rs.txt")).with_label(Label::new(218..221)))
+        .finish(&mut cache)
         .write(&mut backend)
         .unwrap();
 
@@ -64,18 +63,42 @@ fn main() {
         .with_code("E0425")
         .with_message("cannot find value `labels` in this scope")
         .with_view(
-            SourceView::new(&source).with_labels([
-                Label::new(Level::Help, 1386..1411)
-                    .with_message("a field by that name exists in `Self`"),
-                Label::new(Level::Error, 1518..1524),
+            SourceView::new(PathBuf::from("./test.rs.txt")).with_labels([
+                Label::new(1386..1411).with_message("a field by that name exists in `Self`"),
+                Label::new(1518..1524),
             ]),
         )
-        .finish()
+        .finish(&mut cache)
         .write(&mut backend)
         .unwrap();
 
     insta::assert_snapshot!(String::from_utf8(backend.0).unwrap());
 }
+
+struct FileCache {
+    files: HashMap<PathBuf, String>,
+}
+
+impl FileCache {
+    fn new() -> Self {
+        Self {
+            files: HashMap::new(),
+        }
+    }
+}
+
+impl Cache<PathBuf> for FileCache {
+    type Error = io::Error;
+
+    fn fetch(&mut self, id: &PathBuf) -> Result<&str, Self::Error> {
+        Ok(self
+            .files
+            .entry(id.clone())
+            .or_insert(fs::read_to_string(id)?))
+    }
+}
+
+use ariadne_next::tree::{Element, Inline, IntoElement, RgbColor, TextStyle};
 
 #[derive(Debug)]
 enum Level {

@@ -4,23 +4,23 @@ use std::fmt::Debug;
 mod plaintext;
 pub use plaintext::PlainText;
 
-pub mod render;
-use render::{Element, Inline, IntoElement, TextStyle};
+pub mod tree;
+use tree::{Element, IntoElement};
 
 pub type Span = std::ops::Range<usize>;
 
 #[must_use]
-pub struct Report<ReportKind: fmt::Debug, LabelKind: fmt::Debug> {
+pub struct Report<ReportKind, SourceId> {
     level: ReportKind,
     code: Option<String>,
-    message: Vec<Element>,
+    message: Vec<tree::Element>,
     /// Annotated section of source code
-    view: Option<SourceView<LabelKind>>,
+    view: Option<SourceView<SourceId>>,
     /// Help or note messages
     comments: Vec<(ReportKind, String)>,
 }
 
-impl<ReportKind: IntoElement + fmt::Debug, LabelKind: fmt::Debug> Report<ReportKind, LabelKind> {
+impl<ReportKind: IntoElement, SourceId> Report<ReportKind, SourceId> {
     pub fn new(kind: ReportKind) -> Self {
         Self {
             level: kind,
@@ -31,12 +31,12 @@ impl<ReportKind: IntoElement + fmt::Debug, LabelKind: fmt::Debug> Report<ReportK
         }
     }
 
-    pub fn with_view(mut self, view: SourceView<LabelKind>) -> Self {
+    pub fn with_view(mut self, view: SourceView<SourceId>) -> Self {
         self.view = Some(view);
         self
     }
 
-    pub fn set_view(&mut self, view: SourceView<LabelKind>) {
+    pub fn set_view(&mut self, view: SourceView<SourceId>) {
         self.view = Some(view);
     }
 
@@ -60,7 +60,9 @@ impl<ReportKind: IntoElement + fmt::Debug, LabelKind: fmt::Debug> Report<ReportK
 
     // TODO Comments
 
-    pub fn finish(mut self) -> Element {
+    pub fn finish(mut self, cache: &mut impl Cache<SourceId>) -> tree::Element {
+        use tree::*;
+
         let mut vstack: Vec<Element> = vec![];
 
         {
@@ -76,24 +78,28 @@ impl<ReportKind: IntoElement + fmt::Debug, LabelKind: fmt::Debug> Report<ReportK
         }
 
         if let Some(view) = self.view {
+            let source = cache.fetch(&view.source_id).unwrap();
+
             vstack.push(Element::Inline(Inline::new("   ╭─[<unkown>:255:9]")));
             vstack.push(Element::Inline(Inline::new("")));
 
             // Find smallest span that encloses all label spans
-            let (start, end) = view.labels.iter().fold(
-                (view.source.len(), 0),
-                |(start, end), Label { span, .. }| (start.min(span.start), end.max(span.end)),
-            );
+            let (start, end) = view
+                .labels
+                .iter()
+                .fold((source.len(), 0), |(start, end), Label { span, .. }| {
+                    (start.min(span.start), end.max(span.end))
+                });
 
             // TODO Could probably be done better :(
-            let index_start = view.source[..start]
+            let index_start = source[..start]
                 .rfind(|c| c == '\n')
                 .map(|i| i + 1)
                 .unwrap_or(start);
-            let offset_end = &view.source[end..].find(|c| c == '\n').unwrap_or(0);
+            let offset_end = &source[end..].find(|c| c == '\n').unwrap_or(0);
             let index_end = end + offset_end;
 
-            let content = &view.source[index_start..index_end];
+            let content = &source[index_start..index_end];
             // let width = content.lines().map(|line| line.len()).max().unwrap();
 
             vstack.push(Element::HStack(vec![
@@ -107,10 +113,10 @@ impl<ReportKind: IntoElement + fmt::Debug, LabelKind: fmt::Debug> Report<ReportK
             for label in view.labels {
                 vstack.push(Element::HStack(vec![
                     Element::Inline(Inline::new("=> ")),
-                    if label.message.is_empty() {
-                        Element::Inline(Inline::new(format!("<marker label>")))
+                    if let Some(message) = label.message {
+                        message
                     } else {
-                        Element::Inline(Inline::new(label.message))
+                        Element::Inline(Inline::new("<empty label>"))
                     },
                     Element::Inline(Inline::new(format!(" {:?}", label.span))),
                 ]))
@@ -123,67 +129,73 @@ impl<ReportKind: IntoElement + fmt::Debug, LabelKind: fmt::Debug> Report<ReportK
 
 #[derive(Debug)]
 /// Annotated section of source code
-pub struct SourceView<LabelKind: fmt::Debug> {
-    // TODO Should we even store source here?
-    source: &'static str,
-    labels: Vec<Label<LabelKind>>,
+pub struct SourceView<Id> {
+    source_id: Id,
+    labels: Vec<Label>,
 }
 
-impl<Level: fmt::Debug> SourceView<Level> {
-    pub fn new(source: &'static str) -> Self {
+impl<Id> SourceView<Id> {
+    pub fn new(source_id: Id) -> Self {
         Self {
-            source,
+            source_id,
             labels: vec![],
         }
     }
 
-    pub fn with_label(mut self, label: Label<Level>) -> Self {
+    pub fn with_label(mut self, label: Label) -> Self {
         self.labels.push(label);
         self
     }
 
-    pub fn with_labels(mut self, labels: impl IntoIterator<Item = Label<Level>>) -> Self {
+    pub fn with_labels(mut self, labels: impl IntoIterator<Item = Label>) -> Self {
         self.labels.extend(labels);
         self
     }
 
-    pub fn add_label(&mut self, label: Label<Level>) {
+    pub fn add_label(&mut self, label: Label) {
         self.labels.push(label);
     }
 
-    pub fn add_labels(&mut self, labels: impl IntoIterator<Item = Label<Level>>) {
+    pub fn add_labels(&mut self, labels: impl IntoIterator<Item = Label>) {
         self.labels.extend(labels);
     }
+}
+
+pub trait Cache<Id: ?Sized>
+where
+    Self::Error: fmt::Debug,
+{
+    type Error;
+
+    fn fetch(&mut self, id: &Id) -> Result<&str, Self::Error>;
 }
 
 #[derive(Debug)]
-pub struct Label<Kind> {
-    kind: Kind,
+pub struct Label {
     span: Span,
-    message: String,
+    message: Option<Element>,
 }
 
-impl<Level> Label<Level> {
-    pub fn new(level: Level, span: Span) -> Self {
+impl Label {
+    pub fn new(span: Span) -> Self {
         Self {
-            kind: level,
             span,
-            message: "".into(),
+            message: None,
         }
     }
 
-    pub fn with_message(mut self, message: impl Into<String>) -> Self {
-        self.message = message.into();
+    pub fn with_message(mut self, message: impl IntoElement) -> Self {
+        self.message = Some(message.into_element());
         self
     }
 
-    pub fn set_message(&mut self, message: impl Into<String>) {
-        self.message = message.into();
+    pub fn set_message(&mut self, message: impl IntoElement) {
+        self.message = Some(message.into_element());
     }
 }
 
 pub trait Backend {
     type Error;
 
-    fn write(&mut self, element: &Element) -> Result<(), Self::Error>;
+    fn write(&mut self, element: &tree::Element) -> Result<(), Self::Error>;
 }
