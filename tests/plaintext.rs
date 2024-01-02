@@ -29,15 +29,9 @@ use std::io::Write;
 // For more information about an error, try `rustc --explain E0412`.
 // error: could not compile `ariadne-rewrite` (lib) due to 2 previous errors
 
+#[test]
 fn main() {
     let source = include_str!("./test.rs.txt");
-    //     let source = "{
-    //     test1
-    //     test2
-    //     test3
-    //     test4
-    // }";
-    // let source = "\ntest";
     let mut backend = PlainText(Vec::new());
 
     Report::new(Level::Error)
@@ -80,9 +74,7 @@ fn main() {
         .write(&mut backend)
         .unwrap();
 
-    let string = String::from_utf8(backend.0).unwrap();
-    insta::assert_snapshot!(string);
-    println!("{string}");
+    insta::assert_snapshot!(String::from_utf8(backend.0).unwrap());
 }
 
 #[derive(Debug)]

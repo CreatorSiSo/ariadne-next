@@ -1,6 +1,6 @@
 ---
-source: src/main.rs
-expression: string
+source: tests/plaintext.rs
+expression: "String::from_utf8(backend.0).unwrap()"
 ---
 error[E0412]: cannot find type `Lab` in this scope
    ╭─[<unkown>:255:9]
