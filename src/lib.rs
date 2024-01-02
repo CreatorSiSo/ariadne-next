@@ -1,5 +1,5 @@
-use core::fmt;
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug, path::PathBuf};
+use std::{fmt, fs, io};
 
 mod plaintext;
 pub use plaintext::PlainText;
@@ -161,15 +161,6 @@ impl<Id> SourceView<Id> {
     }
 }
 
-pub trait Cache<Id: ?Sized>
-where
-    Self::Error: fmt::Debug,
-{
-    type Error;
-
-    fn fetch(&mut self, id: &Id) -> Result<&str, Self::Error>;
-}
-
 #[derive(Debug)]
 pub struct Label {
     span: Span,
@@ -191,6 +182,53 @@ impl Label {
 
     pub fn set_message(&mut self, message: impl IntoElement) {
         self.message = Some(message.into_element());
+    }
+}
+
+pub trait Cache<Id: ?Sized>
+where
+    Self::Error: fmt::Debug,
+{
+    type Error;
+
+    fn fetch(&mut self, id: &Id) -> Result<&str, Self::Error>;
+}
+
+impl Cache<&str> for Vec<(&str, &str)> {
+    type Error = ();
+
+    fn fetch(&mut self, id: &&str) -> Result<&str, Self::Error> {
+        if let Some(source) = self
+            .iter()
+            .find_map(|(key, source)| (key == id).then_some(source))
+        {
+            Ok(source)
+        } else {
+            Err(())
+        }
+    }
+}
+
+pub struct FileCache {
+    files: HashMap<PathBuf, String>,
+}
+
+impl FileCache {
+    fn new() -> Self {
+        Self {
+            files: HashMap::new(),
+        }
+    }
+}
+
+impl Cache<PathBuf> for FileCache {
+    type Error = io::Error;
+
+    fn fetch(&mut self, id: &PathBuf) -> Result<&str, Self::Error> {
+        Ok(self
+            .files
+            .entry(id.clone())
+            .or_insert(fs::read_to_string(id)?))
     }
 }
 

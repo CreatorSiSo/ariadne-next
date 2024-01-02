@@ -13,18 +13,17 @@ help: you might be missing a type parameter
 
          view: Option<SourceView<Lab>>,
 
-=> <marker label> 218..221
+=> <empty label> 218..221
 
 error[E0425]: cannot find value `labels` in this scope
    ╭─[<unkown>:255:9]
 
          labels: Vec<Label<Level>>,
      }
-     
+
      impl<Level> SourceView<Level> {
          pub fn new(source: &'static str) -> Self {
              Self { source, labels }
 
 => a field by that name exists in `Self` 1386..1411
-=> <marker label> 1518..1524
-
+=> <empty label> 1518..1524
