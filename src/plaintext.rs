@@ -57,7 +57,9 @@ fn render_element(lines: &mut Lines, element: &Element) {
                 let line = lines.get_mut(index);
                 // Append spaces to lines that are shorter than the longest line
                 line.push_str(&" ".repeat(longest_len - line.len()));
-                line.push_str(inner_line);
+
+                // TODO Remove this when SourceView just generates a VStack
+                line.push_str(inner_line.trim_end_matches(|c| c == '\n'));
             }
         }
         Element::Inline(inline) => lines.get_mut(0).push_str(&inline.text),
