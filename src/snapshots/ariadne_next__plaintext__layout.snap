@@ -1,0 +1,11 @@
+---
+source: src/plaintext.rs
+expression: output
+---
+test1
+1 2#_#_#_#_
+   _#_#_#_#
+   #_#_#_#_
+   _#_#_#_#
+test3
+

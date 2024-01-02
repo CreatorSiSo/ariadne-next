@@ -123,14 +123,12 @@ fn layout() {
 
     let output = String::from_utf8(backend.0).unwrap();
 
+    // Expected:
     // test1
     // 1 2#_#_#_#_
     //    _#_#_#_#
     //    #_#_#_#_
     //    _#_#_#_#
     // test3
-    let expected = "test1\n1 2#_#_#_#_\n   _#_#_#_#\n   #_#_#_#_\n   _#_#_#_#\ntest3\n";
-
-    print!("{expected}");
-    assert_eq!(output, expected);
+    insta::assert_snapshot!(output);
 }

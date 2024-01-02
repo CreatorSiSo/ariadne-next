@@ -38,7 +38,7 @@ fn main() {
     //     test4
     // }";
     // let source = "\ntest";
-    let mut backend = PlainText(std::io::stdout().lock());
+    let mut backend = PlainText(Vec::new());
 
     Report::new(Level::Error)
         .with_code("E0412")
@@ -79,6 +79,10 @@ fn main() {
         .finish()
         .write(&mut backend)
         .unwrap();
+
+    let string = String::from_utf8(backend.0).unwrap();
+    insta::assert_snapshot!(string);
+    println!("{string}");
 }
 
 #[derive(Debug)]
