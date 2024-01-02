@@ -1,39 +1,10 @@
 use ariadne_next::tree::{Element, Inline, IntoElement, TextStyle};
-use ariadne_next::{Color, Label, PlainText, Report, SourceView};
-use std::io::Write;
+use ariadne_next::{Ansi, Color, Label, Report, SourceView};
+use std::io::{stdout, Write};
 
-// Goal:
-// error[E0412]: cannot find type `Lab` in this scope
-//   --> src/lib.rs:10:29
-//    |
-// 10 |     view: Option<SourceView<Lab>>,
-//    |                             ^^^ not found in this scope
-//    |
-// help: you might be missing a type parameter
-//    |
-// 5  | pub struct Report<Level, Lab> {
-//    |                        +++++
-
-// error[E0425]: cannot find value `labels` in this scope
-//   --> src/lib.rs:65:24
-//    |
-// 60 |     labels: Vec<Label<Level>>,
-//    |     ------------------------- a field by that name exists in `Self`
-// ...
-// 65 |         Self { source, labels }
-//    |                        ^^^^^^
-
-// Some errors have detailed explanations: E0412, E0425.
-// For more information about an error, try `rustc --explain E0412`.
-// error: could not compile `ariadne-rewrite` (lib) due to 2 previous errors
-
-#[test]
 fn main() {
     let mut cache = vec![("test.rs", include_str!("./test.rs.txt"))];
-    let mut backend = PlainText(Vec::new());
-
-    // TODO Add separate Kind/Level for labels?
-    // This could be Kind::Add and control the characters "+++", color, ...
+    let mut backend = Ansi(stdout().lock());
 
     Report::new(Level::Error)
         .with_code("E0412")
@@ -65,8 +36,6 @@ fn main() {
         .finish(&mut cache)
         .write(&mut backend)
         .unwrap();
-
-    insta::assert_snapshot!(String::from_utf8(backend.0).unwrap());
 }
 
 #[derive(Debug)]

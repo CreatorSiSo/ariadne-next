@@ -4,9 +4,13 @@ use std::{fmt, fs, io};
 mod plaintext;
 pub use plaintext::PlainText;
 
+mod ansi;
+pub use ansi::Ansi;
+
 pub mod tree;
 use tree::{Element, IntoElement};
 
+pub use yansi::Color;
 pub type Span = std::ops::Range<usize>;
 
 #[must_use]

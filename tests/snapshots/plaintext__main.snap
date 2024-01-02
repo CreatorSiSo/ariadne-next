@@ -20,10 +20,11 @@ error[E0425]: cannot find value `labels` in this scope
 
          labels: Vec<Label<Level>>,
      }
-
+     
      impl<Level> SourceView<Level> {
          pub fn new(source: &'static str) -> Self {
              Self { source, labels }
 
 => a field by that name exists in `Self` 1386..1411
 => <empty label> 1518..1524
+

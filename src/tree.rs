@@ -1,4 +1,4 @@
-use crate::Backend;
+use crate::{Backend, Color};
 
 #[derive(Debug)]
 pub enum Element {
@@ -53,9 +53,9 @@ impl Inline {
 #[derive(Debug, Default)]
 pub struct TextStyle {
     /// Color of the text
-    fg_color: Option<RgbColor>,
+    pub fg_color: Option<Color>,
     /// Color of the background
-    bg_color: Option<RgbColor>,
+    pub bg_color: Option<Color>,
     /// Additional formatting data
     flags: TextStyleFlags,
 }
@@ -65,12 +65,12 @@ impl TextStyle {
         Self::default()
     }
 
-    pub fn with_fg_color(mut self, color: RgbColor) -> Self {
+    pub fn with_fg_color(mut self, color: Color) -> Self {
         self.fg_color = Some(color);
         self
     }
 
-    pub fn with_bg_color(mut self, color: RgbColor) -> Self {
+    pub fn with_bg_color(mut self, color: Color) -> Self {
         self.bg_color = Some(color);
         self
     }
@@ -114,18 +114,4 @@ pub enum BasicColor {
     Magenta,
     Cyan,
     White,
-}
-
-#[derive(Debug)]
-// TODO There should probably be some way of using presets (like red, green, yellow, ...)
-pub struct RgbColor {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl RgbColor {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b }
-    }
 }
