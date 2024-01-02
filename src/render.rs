@@ -3,10 +3,9 @@ use crate::Backend;
 pub enum Element {
     VStack(Vec<Element>),
     HStack(Vec<Element>),
-    Container {
+    Box {
         content: Vec<Inline>,
         width: Option<usize>,
-        height: Option<usize>,
         style: TextStyle,
     },
     Inline(Inline),
