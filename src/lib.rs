@@ -160,17 +160,22 @@ impl Label {
     }
 }
 
-pub trait Cache<Id: ?Sized>
-where
-    Self::Error: fmt::Debug,
-{
-    type Error;
+pub trait Cache<Id: ?Sized> {
+    type Error: fmt::Debug;
+    // where clause is currently required: https://github.com/rust-lang/rust/issues/87479
+    type DisplayedId<'a>: fmt::Display + 'a
+    where
+        Id: 'a;
 
     fn fetch(&mut self, id: &Id) -> Result<&str, Self::Error>;
+
+    /// Display the given Id. as a single inline value.
+    fn display_id<'a>(&self, id: &'a Id) -> Option<Self::DisplayedId<'a>>;
 }
 
-impl Cache<&str> for &[(&str, &str)] {
+impl<'a> Cache<&'a str> for &[(&'a str, &str)] {
     type Error = ();
+    type DisplayedId<'b> = &'b str where &'a str: 'b;
 
     fn fetch(&mut self, id: &&str) -> Result<&str, Self::Error> {
         if let Some(source) = self
@@ -182,13 +187,22 @@ impl Cache<&str> for &[(&str, &str)] {
             Err(())
         }
     }
+
+    fn display_id(&self, id: &&'a str) -> Option<Self::DisplayedId<'a>> {
+        Some(*id)
+    }
 }
 
 impl Cache<()> for () {
     type Error = ();
+    type DisplayedId<'a> = &'a str;
 
     fn fetch(&mut self, _: &()) -> Result<&str, Self::Error> {
         Err(())
+    }
+
+    fn display_id(&self, _: &()) -> Option<Self::DisplayedId<'static>> {
+        None
     }
 }
 
@@ -197,7 +211,7 @@ pub struct FileCache {
 }
 
 impl FileCache {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             files: HashMap::new(),
         }
@@ -206,12 +220,17 @@ impl FileCache {
 
 impl Cache<PathBuf> for FileCache {
     type Error = io::Error;
+    type DisplayedId<'a> = std::path::Display<'a>;
 
     fn fetch(&mut self, id: &PathBuf) -> Result<&str, Self::Error> {
         Ok(self
             .files
             .entry(id.clone())
             .or_insert(fs::read_to_string(id)?))
+    }
+
+    fn display_id<'a>(&self, id: &'a PathBuf) -> Option<std::path::Display<'a>> {
+        Some(id.display())
     }
 }
 

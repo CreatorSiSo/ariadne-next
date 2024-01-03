@@ -23,10 +23,19 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
     }
 
     if let Some(view) = &report.view {
-        let source = cache.fetch(&view.source_id).unwrap();
+        vstack.push(
+            format!(
+                "   ╭─[{}:255:9]",
+                cache
+                    .display_id(&view.source_id)
+                    .map(|id| id.to_string())
+                    .unwrap_or("<unkown>".into())
+            )
+            .into_element(),
+        );
+        vstack.push("".into_element());
 
-        vstack.push(Element::Inline(Inline::new("   ╭─[<unkown>:255:9]")));
-        vstack.push(Element::Inline(Inline::new("")));
+        let source = cache.fetch(&view.source_id).unwrap();
 
         // Find smallest span that encloses all label spans
         let (start, end) = view

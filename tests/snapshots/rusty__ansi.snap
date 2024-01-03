@@ -1,21 +1,21 @@
 ---
 source: tests/rusty.rs
-expression: "String::from_utf8(backend.0).unwrap()"
+expression: render_ansi()
 ---
 [31merror[0m[E0412]: cannot find type `Lab` in this scope
-   ╭─[<unkown>:255:9]
+   ╭─[test.rs:255:9]
 
          view: Option<SourceView<Lab>>,
 
 => not found in this scope 218..221
 [34mhelp[0m: you might be missing a type parameter
-   ╭─[<unkown>:255:9]
+   ╭─[test.rs:255:9]
 
          view: Option<SourceView<Lab>>,
 
 => <empty label> 218..221
 [31merror[0m[E0425]: cannot find value `labels` in this scope
-   ╭─[<unkown>:255:9]
+   ╭─[test.rs:255:9]
 
          labels: Vec<Label<Level>>,
      }
