@@ -7,7 +7,7 @@ use tree::{Element, IntoElement};
 mod backends;
 pub use backends::{Ansi, PlainText};
 
-pub use yansi::Color;
+pub type Color = yansi::Color;
 pub type Span = std::ops::Range<usize>;
 
 // TODO Allow user to define their own ReportKind?
@@ -169,7 +169,7 @@ where
     fn fetch(&mut self, id: &Id) -> Result<&str, Self::Error>;
 }
 
-impl Cache<&str> for Vec<(&str, &str)> {
+impl Cache<&str> for &[(&str, &str)] {
     type Error = ();
 
     fn fetch(&mut self, id: &&str) -> Result<&str, Self::Error> {

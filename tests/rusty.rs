@@ -25,7 +25,12 @@ use ariadne_next::{Ansi, Label, PlainText, Report, ReportKind, SourceView};
 // For more information about an error, try `rustc --explain E0412`.
 // error: could not compile `ariadne-rewrite` (lib) due to 2 previous errors
 
+const CACHE: [(&str, &str); 1] = [("test.rs", include_str!("./test.rs.txt"))];
+
 fn reports() -> [Report<&'static str>; 3] {
+    // TODO Add separate Kind/Level for labels?
+    // Kind::Add might control the characters "+++", color, ...
+
     [
         Report::new(ReportKind::Error)
             .with_code("E0412")
@@ -47,30 +52,36 @@ fn reports() -> [Report<&'static str>; 3] {
     ]
 }
 
-#[test]
-fn plainext() {
-    // TODO Add separate Kind/Level for labels?
-    // This could be Kind::Add and control the characters "+++", color, ...
-
-    let mut cache = vec![("test.rs", include_str!("./test.rs.txt"))];
-
+fn render_plainext() -> String {
     let mut backend = PlainText(Vec::new());
     for report in reports() {
-        report.write(&mut backend, &mut cache).unwrap();
+        report.write(&mut backend, &mut CACHE.as_slice()).unwrap();
     }
-    insta::assert_snapshot!(String::from_utf8(backend.0).unwrap());
+    String::from_utf8(backend.0).unwrap()
+}
+
+fn render_ansi() -> String {
+    let mut backend = Ansi(Vec::new());
+    for report in reports() {
+        report.write(&mut backend, &mut CACHE.as_slice()).unwrap();
+    }
+    String::from_utf8(backend.0).unwrap()
 }
 
 #[test]
 fn ansi() {
-    // TODO Add separate Kind/Level for labels?
-    // This could be Kind::Add and control the characters "+++", color, ...
+    insta::assert_snapshot!(render_ansi());
+}
 
-    let mut cache = vec![("test.rs", include_str!("./test.rs.txt"))];
+#[test]
+fn plaintext() {
+    insta::assert_snapshot!(render_plainext());
+}
 
-    let mut backend = Ansi(Vec::new());
-    for report in reports() {
-        report.write(&mut backend, &mut cache).unwrap();
-    }
-    insta::assert_snapshot!(String::from_utf8(backend.0).unwrap());
+#[test]
+fn stripped_ansi() {
+    assert_eq!(
+        render_plainext(),
+        strip_ansi_escapes::strip_str(render_ansi())
+    )
 }
