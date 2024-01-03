@@ -1,6 +1,5 @@
+use crate::{tree::Element, Cache, Report};
 use itertools::Itertools;
-
-use crate::tree::Element;
 use std::io;
 
 pub struct PlainText<W: io::Write>(pub W);
@@ -9,7 +8,18 @@ pub type PlainTextError = io::Error;
 impl<W: io::Write> crate::Backend for PlainText<W> {
     type Error = PlainTextError;
 
-    fn write(&mut self, element: &Element) -> Result<(), Self::Error> {
+    fn write<SourceId>(
+        &mut self,
+        report: &Report<SourceId>,
+        cache: &mut impl Cache<SourceId>,
+    ) -> Result<(), Self::Error> {
+        let element = super::layout(report, cache);
+        self.render(&element)
+    }
+}
+
+impl<W: io::Write> PlainText<W> {
+    fn render(&mut self, element: &Element) -> Result<(), PlainTextError> {
         let (_, height) = compute_size(element);
         let mut lines = Vec::from_iter((0..height).map(|_| String::new()));
 
@@ -88,9 +98,8 @@ fn fill_spaces(lines: &mut [String]) {
 }
 
 #[test]
-fn layout() {
+fn test_layout() {
     use crate::tree::{Inline, IntoElement, TextStyle};
-    use crate::Backend;
 
     let mut backend = PlainText(Vec::new());
     let element = Element::VStack(vec![
@@ -109,7 +118,7 @@ fn layout() {
     ]);
     assert_eq!(compute_size(&element), (11, 6));
 
-    backend.write(&element).unwrap();
+    backend.render(&element).unwrap();
     let output = String::from_utf8(backend.0).unwrap();
 
     // Expected:

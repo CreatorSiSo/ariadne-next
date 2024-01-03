@@ -1,21 +1,50 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 use std::{fmt, fs, io};
 
-mod plaintext;
-pub use plaintext::PlainText;
-
-mod ansi;
-pub use ansi::Ansi;
-
 pub mod tree;
 use tree::{Element, IntoElement};
+
+mod backends;
+pub use backends::{Ansi, PlainText};
 
 pub use yansi::Color;
 pub type Span = std::ops::Range<usize>;
 
+// TODO Allow user to define their own ReportKind?
+pub enum ReportKind {
+    Error,
+    Warning,
+    Help,
+    Note,
+}
+
+// TODO Setting the styling should not be hard coded (and happen later on)
+impl IntoElement for &ReportKind {
+    fn into_element(self) -> Element {
+        use crate::tree::*;
+
+        let base_style = TextStyle::new().with_bold();
+
+        Element::Inline(match self {
+            ReportKind::Error => {
+                Inline::new("error").with_style(base_style.with_fg_color(Color::Red))
+            }
+            ReportKind::Warning => {
+                Inline::new("warning").with_style(base_style.with_fg_color(Color::Yellow))
+            }
+            ReportKind::Help => {
+                Inline::new("help").with_style(base_style.with_fg_color(Color::Blue))
+            }
+            ReportKind::Note => {
+                Inline::new("note").with_style(base_style.with_fg_color(Color::White))
+            }
+        })
+    }
+}
+
 #[must_use]
-pub struct Report<ReportKind, SourceId> {
-    level: ReportKind,
+pub struct Report<SourceId> {
+    kind: ReportKind,
     code: Option<String>,
     message: Vec<tree::Element>,
     /// Annotated section of source code
@@ -24,10 +53,12 @@ pub struct Report<ReportKind, SourceId> {
     comments: Vec<(ReportKind, String)>,
 }
 
-impl<ReportKind: IntoElement, SourceId> Report<ReportKind, SourceId> {
+impl<SourceId> Report<SourceId> {
+    // TODO Comments
+
     pub fn new(kind: ReportKind) -> Self {
         Self {
-            level: kind,
+            kind,
             code: None,
             message: vec![],
             view: None,
@@ -62,72 +93,12 @@ impl<ReportKind: IntoElement, SourceId> Report<ReportKind, SourceId> {
         self.code = Some(code.into());
     }
 
-    // TODO Comments
-
-    pub fn finish(mut self, cache: &mut impl Cache<SourceId>) -> tree::Element {
-        use tree::*;
-
-        let mut vstack: Vec<Element> = vec![];
-
-        {
-            let mut first_line = vec![self.level.into_element()];
-            if let Some(code) = self.code {
-                // TODO Should the code use the style of self.level?
-                first_line.push(format!("[{code}]").into_element());
-            }
-            first_line.push(": ".into_element());
-            first_line.append(&mut self.message);
-
-            vstack.push(Element::HStack(first_line));
-        }
-
-        if let Some(view) = self.view {
-            let source = cache.fetch(&view.source_id).unwrap();
-
-            vstack.push(Element::Inline(Inline::new("   ╭─[<unkown>:255:9]")));
-            vstack.push(Element::Inline(Inline::new("")));
-
-            // Find smallest span that encloses all label spans
-            let (start, end) = view
-                .labels
-                .iter()
-                .fold((source.len(), 0), |(start, end), Label { span, .. }| {
-                    (start.min(span.start), end.max(span.end))
-                });
-
-            // TODO Could probably be done better :(
-            let index_start = source[..start]
-                .rfind(|c| c == '\n')
-                .map(|i| i + 1)
-                .unwrap_or(start);
-            let offset_end = &source[end..].find(|c| c == '\n').unwrap_or(0);
-            let index_end = end + offset_end;
-
-            let content = &source[index_start..index_end];
-            // let width = content.lines().map(|line| line.len()).max().unwrap();
-
-            vstack.push(Element::HStack(vec![
-                Element::Inline(Inline::new("     ")),
-                Element::VStack(content.lines().map(|line| line.into_element()).collect()),
-            ]));
-
-            vstack.push(Element::Inline(Inline::new("")));
-
-            // TODO How to build Elements for labels?
-            for label in view.labels {
-                vstack.push(Element::HStack(vec![
-                    Element::Inline(Inline::new("=> ")),
-                    if let Some(message) = label.message {
-                        message
-                    } else {
-                        Element::Inline(Inline::new("<empty label>"))
-                    },
-                    Element::Inline(Inline::new(format!(" {:?}", label.span))),
-                ]))
-            }
-        }
-
-        Element::VStack(vstack)
+    pub fn write<B: Backend>(
+        &self,
+        backend: &mut B,
+        cache: &mut impl Cache<SourceId>,
+    ) -> Result<(), B::Error> {
+        backend.write(self, cache)
     }
 }
 
@@ -213,6 +184,14 @@ impl Cache<&str> for Vec<(&str, &str)> {
     }
 }
 
+impl Cache<()> for () {
+    type Error = ();
+
+    fn fetch(&mut self, _: &()) -> Result<&str, Self::Error> {
+        Err(())
+    }
+}
+
 pub struct FileCache {
     files: HashMap<PathBuf, String>,
 }
@@ -239,5 +218,9 @@ impl Cache<PathBuf> for FileCache {
 pub trait Backend {
     type Error;
 
-    fn write(&mut self, element: &tree::Element) -> Result<(), Self::Error>;
+    fn write<SourceId>(
+        &mut self,
+        report: &Report<SourceId>,
+        cache: &mut impl Cache<SourceId>,
+    ) -> Result<(), Self::Error>;
 }

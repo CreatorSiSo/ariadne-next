@@ -1,6 +1,6 @@
-use crate::{Backend, Color};
+use crate::Color;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Element {
     VStack(Vec<Element>),
     HStack(Vec<Element>),
@@ -10,12 +10,6 @@ pub enum Element {
         style: TextStyle,
     },
     Inline(Inline),
-}
-
-impl Element {
-    pub fn write<B: Backend>(&self, backend: &mut B) -> Result<(), B::Error> {
-        backend.write(self)
-    }
 }
 
 pub trait IntoElement {
@@ -30,7 +24,7 @@ impl<S: Into<String>> IntoElement for S {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Inline {
     pub text: String,
     pub style: TextStyle,
@@ -50,7 +44,7 @@ impl Inline {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TextStyle {
     /// Color of the text
     pub fg_color: Option<Color>,
@@ -94,7 +88,7 @@ impl TextStyle {
     // TODO add set_bold and set_italic
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 // TODO How and what information should this store? Bitflags?
 enum TextStyleFlags {
     #[default]

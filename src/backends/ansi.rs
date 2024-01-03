@@ -1,4 +1,7 @@
-use crate::tree::{Element, TextStyle};
+use crate::{
+    tree::{Element, TextStyle},
+    Cache, Report,
+};
 use itertools::Itertools;
 use std::io;
 use yansi::{Paint, Style};
@@ -9,11 +12,22 @@ pub type AnsiError = io::Error;
 impl<W: io::Write> crate::Backend for Ansi<W> {
     type Error = AnsiError;
 
-    fn write(&mut self, element: &Element) -> Result<(), Self::Error> {
+    fn write<SourceId>(
+        &mut self,
+        report: &Report<SourceId>,
+        cache: &mut impl Cache<SourceId>,
+    ) -> Result<(), Self::Error> {
+        let element = super::layout(report, cache);
+        self.render(&element)
+    }
+}
+
+impl<W: io::Write> Ansi<W> {
+    fn render(&mut self, element: &Element) -> Result<(), AnsiError> {
         let (_, height) = compute_size(element);
         let mut lines = Vec::from_iter((0..height).map(|_| String::new()));
 
-        render_element(&mut lines, element);
+        render_element(&mut lines, &element);
 
         for line in lines {
             writeln!(self.0, "{line}")?;
