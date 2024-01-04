@@ -79,6 +79,16 @@ impl From<&TextStyle> for yansi::Style {
         if let Some(fg_color) = &value.fg_color {
             style = style.fg(*fg_color);
         }
+        if let Some(bg_color) = &value.bg_color {
+            style = style.bg(*bg_color);
+        }
+        dbg!(value);
+        if value.is_bold() {
+            style = style.bold();
+        }
+        if value.is_italic() {
+            style = style.italic();
+        }
         style
     }
 }

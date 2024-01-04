@@ -68,15 +68,15 @@ fn render_element(lines: &mut [String], element: &Element) {
 
 #[test]
 fn test_layout() {
-    use crate::tree::{Inline, IntoElement, TextStyle};
+    use crate::tree::{shortcuts::inline, Inline, TextStyle};
 
     let mut backend = PlainText(Vec::new());
     let element = Element::VStack(vec![
-        "test1".into_element(),
+        inline("test1"),
         Element::HStack(vec![
-            "1".into_element(),
-            " ".into_element(),
-            "2".into_element(),
+            inline("1"),
+            inline(" "),
+            inline("2"),
             Element::Box {
                 content: vec![Inline::new("#_#_#_#__#_#_#_##_#_#_#__#_#_#_#")],
                 width: Some(8),

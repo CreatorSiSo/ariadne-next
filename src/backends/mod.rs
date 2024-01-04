@@ -1,4 +1,7 @@
-use crate::tree::{Element, Inline, IntoElement};
+use std::fmt::Write;
+
+use crate::tree::shortcuts::inline;
+use crate::tree::{Element, InlineLayout};
 use crate::{Cache, Label, Report};
 
 mod plaintext;
@@ -11,29 +14,29 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
     let mut vstack: Vec<Element> = vec![];
 
     {
-        let mut first_line = vec![report.kind.into_element()];
-        if let Some(code) = &report.code {
-            // TODO Should the code use the style of self.level?
-            first_line.push(format!("[{code}]").into_element());
-        }
-        first_line.push(": ".into_element());
-        first_line.extend(report.message.iter().cloned());
+        let mut hstack = vec![];
 
-        vstack.push(Element::HStack(first_line));
+        let mut kind = report.kind.inline_layout();
+        if let Some(code) = &report.code {
+            kind.text.write_fmt(format_args!("[{code}]")).unwrap();
+        }
+        hstack.push(Element::Inline(kind));
+
+        hstack.push(inline(": "));
+
+        hstack.extend(report.message.iter().cloned());
+        vstack.push(Element::HStack(hstack));
     }
 
     if let Some(view) = &report.view {
-        vstack.push(
-            format!(
-                "   ╭─[{}:255:9]",
-                cache
-                    .display_id(&view.source_id)
-                    .map(|id| id.to_string())
-                    .unwrap_or("<unkown>".into())
-            )
-            .into_element(),
-        );
-        vstack.push("".into_element());
+        vstack.push(inline(format!(
+            "   ╭─[{}:255:9]",
+            cache
+                .display_id(&view.source_id)
+                .map(|id| id.to_string())
+                .unwrap_or("<unkown>".into())
+        )));
+        vstack.push(inline(""));
 
         let source = cache.fetch(&view.source_id).unwrap();
 
@@ -57,22 +60,27 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
         // let width = content.lines().map(|line| line.len()).max().unwrap();
 
         vstack.push(Element::HStack(vec![
-            Element::Inline(Inline::new("     ")),
-            Element::VStack(content.lines().map(|line| line.into_element()).collect()),
+            inline("     "),
+            Element::VStack(
+                content
+                    .lines()
+                    .map(|line| Element::Inline(line.inline_layout()))
+                    .collect(),
+            ),
         ]));
 
-        vstack.push(Element::Inline(Inline::new("")));
+        vstack.push(inline(""));
 
         // TODO How to build Elements for labels?
         for label in &view.labels {
             vstack.push(Element::HStack(vec![
-                Element::Inline(Inline::new("=> ")),
+                inline("=> "),
                 if let Some(message) = &label.message {
                     message.clone()
                 } else {
-                    Element::Inline(Inline::new("<empty label>"))
+                    inline("<empty label>")
                 },
-                Element::Inline(Inline::new(format!(" {:?}", label.span))),
+                inline(format!(" {:?}", label.span)),
             ]))
         }
     }

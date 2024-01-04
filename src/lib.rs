@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 use std::{fmt, fs, io};
 
 pub mod tree;
-use tree::{Element, IntoElement};
+use tree::{Element, ElementLayout, Inline, InlineLayout};
 
 mod backends;
 pub use backends::{Ansi, PlainText};
@@ -19,26 +19,19 @@ pub enum ReportKind {
 }
 
 // TODO Setting the styling should not be hard coded (and happen later on)
-impl IntoElement for &ReportKind {
-    fn into_element(self) -> Element {
+impl InlineLayout for &ReportKind {
+    fn inline_layout(self) -> Inline {
         use crate::tree::*;
-
         let base_style = TextStyle::new().with_bold();
 
-        Element::Inline(match self {
-            ReportKind::Error => {
-                Inline::new("error").with_style(base_style.with_fg_color(Color::Red))
-            }
+        match self {
+            ReportKind::Error => Inline::new("error").with_style(base_style.with_fg(Color::Red)),
             ReportKind::Warning => {
-                Inline::new("warning").with_style(base_style.with_fg_color(Color::Yellow))
+                Inline::new("warning").with_style(base_style.with_fg(Color::Yellow))
             }
-            ReportKind::Help => {
-                Inline::new("help").with_style(base_style.with_fg_color(Color::Blue))
-            }
-            ReportKind::Note => {
-                Inline::new("note").with_style(base_style.with_fg_color(Color::White))
-            }
-        })
+            ReportKind::Help => Inline::new("help").with_style(base_style.with_fg(Color::Blue)),
+            ReportKind::Note => Inline::new("note").with_style(base_style.with_fg(Color::White)),
+        }
     }
 }
 
@@ -75,13 +68,13 @@ impl<SourceId> Report<SourceId> {
         self.view = Some(view);
     }
 
-    pub fn with_message(mut self, message: impl IntoElement) -> Self {
-        self.message.push(message.into_element());
+    pub fn with_message(mut self, message: impl ElementLayout) -> Self {
+        self.message.push(message.element_layout());
         self
     }
 
-    pub fn set_message(&mut self, message: impl IntoElement) {
-        self.message.push(message.into_element());
+    pub fn set_message(&mut self, message: impl ElementLayout) {
+        self.message.push(message.element_layout());
     }
 
     pub fn with_code(mut self, code: impl fmt::Display) -> Self {
@@ -150,13 +143,13 @@ impl Label {
         }
     }
 
-    pub fn with_message(mut self, message: impl IntoElement) -> Self {
-        self.message = Some(message.into_element());
+    pub fn with_message(mut self, message: impl ElementLayout) -> Self {
+        self.message = Some(message.element_layout());
         self
     }
 
-    pub fn set_message(&mut self, message: impl IntoElement) {
-        self.message = Some(message.into_element());
+    pub fn set_message(&mut self, message: impl ElementLayout) {
+        self.message = Some(message.element_layout());
     }
 }
 

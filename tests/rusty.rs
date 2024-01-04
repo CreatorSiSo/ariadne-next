@@ -70,12 +70,16 @@ fn render_ansi() -> String {
 
 #[test]
 fn ansi() {
-    insta::assert_snapshot!(render_ansi());
+    let result = render_ansi();
+    println!("{result}");
+    insta::assert_snapshot!(result);
 }
 
 #[test]
 fn plaintext() {
-    insta::assert_snapshot!(render_plainext());
+    let result = render_plainext();
+    println!("{result}");
+    insta::assert_snapshot!(result);
 }
 
 #[test]

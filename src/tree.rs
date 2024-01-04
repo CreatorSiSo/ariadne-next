@@ -12,15 +12,19 @@ pub enum Element {
     Inline(Inline),
 }
 
-pub trait IntoElement {
-    fn into_element(self) -> Element;
+pub trait ElementLayout {
+    fn element_layout(self) -> Element;
 }
 
-// TODO Should this be implemented for everything that implenents Display?
-// TODO How to improve error messages?
-impl<S: Into<String>> IntoElement for S {
-    fn into_element(self) -> Element {
-        Element::Inline(Inline::new(self.into()))
+impl<T: InlineLayout> ElementLayout for T {
+    fn element_layout(self) -> Element {
+        Element::Inline(self.inline_layout())
+    }
+}
+
+impl ElementLayout for Inline {
+    fn element_layout(self) -> Element {
+        Element::Inline(self)
     }
 }
 
@@ -37,10 +41,34 @@ impl Inline {
             style: TextStyle::default(),
         }
     }
+}
 
-    pub fn with_style(mut self, style: TextStyle) -> Self {
+pub trait InlineLayout {
+    fn inline_layout(self) -> Inline;
+}
+
+impl<T: std::fmt::Display> InlineLayout for T {
+    fn inline_layout(self) -> Inline {
+        Inline::new(self.to_string())
+    }
+}
+
+pub trait Styled<T> {
+    fn with_style(self, style: TextStyle) -> T;
+}
+
+impl Styled<Inline> for Inline {
+    fn with_style(mut self, style: TextStyle) -> Inline {
         self.style = style;
         self
+    }
+}
+
+impl<T: InlineLayout> Styled<Inline> for T {
+    fn with_style(self, style: TextStyle) -> Inline {
+        let mut inline = self.inline_layout();
+        inline.style = style;
+        inline
     }
 }
 
@@ -59,12 +87,12 @@ impl TextStyle {
         Self::default()
     }
 
-    pub fn with_fg_color(mut self, color: Color) -> Self {
+    pub fn with_fg(mut self, color: Color) -> Self {
         self.fg_color = Some(color);
         self
     }
 
-    pub fn with_bg_color(mut self, color: Color) -> Self {
+    pub fn with_bg(mut self, color: Color) -> Self {
         self.bg_color = Some(color);
         self
     }
@@ -83,6 +111,20 @@ impl TextStyle {
             TextStyleFlags::Bold | TextStyleFlags::BoldItalic => TextStyleFlags::BoldItalic,
         };
         self
+    }
+
+    pub fn is_bold(&self) -> bool {
+        matches!(
+            self.flags,
+            TextStyleFlags::Bold | TextStyleFlags::BoldItalic
+        )
+    }
+
+    pub fn is_italic(&self) -> bool {
+        matches!(
+            self.flags,
+            TextStyleFlags::Italic | TextStyleFlags::BoldItalic
+        )
     }
 
     // TODO add set_bold and set_italic
@@ -108,4 +150,12 @@ pub enum BasicColor {
     Magenta,
     Cyan,
     White,
+}
+
+pub mod shortcuts {
+    use super::{Element, InlineLayout};
+
+    pub fn inline(text: impl InlineLayout) -> Element {
+        Element::Inline(text.inline_layout())
+    }
 }
