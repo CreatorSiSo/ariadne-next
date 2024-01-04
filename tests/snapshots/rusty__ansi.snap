@@ -1,20 +1,20 @@
 ---
 source: tests/rusty.rs
-expression: render_ansi()
+expression: result
 ---
-[31merror[E0412][0m: cannot find type `Lab` in this scope
+[1;31merror[E0412][0m: cannot find type `Lab` in this scope
    ╭─[test.rs:255:9]
 
          view: Option<SourceView<Lab>>,
 
 => not found in this scope 218..221
-[34mhelp[0m: you might be missing a type parameter
+[1;34mhelp[0m: you might be missing a type parameter
    ╭─[test.rs:255:9]
 
          view: Option<SourceView<Lab>>,
 
 => <empty label> 218..221
-[31merror[E0425][0m: cannot find value `labels` in this scope
+[1;31merror[E0425][0m: cannot find value `labels` in this scope
    ╭─[test.rs:255:9]
 
          labels: Vec<Label<Level>>,
