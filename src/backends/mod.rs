@@ -2,13 +2,14 @@ use std::fmt::Write;
 
 use crate::tree::shortcuts::inline;
 use crate::tree::{Element, InlineLayout};
-use crate::{Cache, Label, Report};
+use crate::{Cache, Label, Report, SourceView, Span};
 
 mod plaintext;
 pub use plaintext::PlainText;
 
 mod ansi;
 pub use ansi::Ansi;
+use unicode_width::UnicodeWidthStr;
 
 fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>) -> Element {
     let mut vstack: Vec<Element> = vec![];
@@ -29,58 +30,59 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
     }
 
     if let Some(view) = &report.view {
-        let name = cache
-            .display_id(&view.source_id)
-            .map(|id| id.to_string())
-            .unwrap_or("<unkown>".into());
-
-        let source = cache.fetch(&view.source_id).unwrap();
-
-        let (lines, cols) = lines_cols(source, view.location, 4);
-        vstack.push(inline(format!("   ╭─[{name}:{lines}:{cols}]")));
-        vstack.push(inline(""));
-
-        // Find smallest span that encloses all label spans
-        let (start, end) = view
-            .labels
-            .iter()
-            .fold((source.len(), 0), |(start, end), Label { span, .. }| {
-                (start.min(span.start), end.max(span.end))
-            });
-
-        // TODO Could probably be done better :(
-        let index_start = source[..start]
-            .rfind(|c| c == '\n')
-            .map(|i| i + 1)
-            .unwrap_or(start);
-        let offset_end = &source[end..].find(|c| c == '\n').unwrap_or(0);
-        let index_end = end + offset_end;
-
-        let content = &source[index_start..index_end];
-        // let width = content.lines().map(|line| line.len()).max().unwrap();
-
-        vstack.push(Element::HStack(vec![
-            inline("     "),
-            Element::VStack(content.lines().map(inline).collect()),
-        ]));
-
-        vstack.push(inline(""));
-
-        // TODO How to build Elements for labels?
-        for label in &view.labels {
-            vstack.push(Element::HStack(vec![
-                inline("=> "),
-                if let Some(message) = &label.message {
-                    message.clone()
-                } else {
-                    inline("<empty label>")
-                },
-                inline(format!(" {:?}", label.span)),
-            ]))
-        }
+        vstack.push(layout_view(view, cache));
     }
 
     Element::VStack(vstack)
+}
+
+fn layout_view<SourceId>(view: &SourceView<SourceId>, cache: &mut impl Cache<SourceId>) -> Element {
+    let mut vstack = vec![];
+
+    let name = cache
+        .display_id(&view.source_id)
+        .map(|id| id.to_string())
+        .unwrap_or("<unkown>".into());
+
+    let source = cache.fetch(&view.source_id).unwrap();
+
+    let (lines, cols) = lines_cols(source, view.location, 4);
+    vstack.push(inline(format!("[{name}:{lines}:{cols}]")));
+
+    vstack.push(inline(""));
+
+    let block = lines_enclosing_spans(source, view.labels.iter().map(|Label { span, .. }| span));
+    vstack.extend(block.lines().map(inline));
+
+    vstack.push(inline(""));
+
+    // TODO How to build Elements for labels?
+    for label in &view.labels {
+        vstack.push(Element::HStack(vec![
+            inline("=> "),
+            label.message.clone().unwrap_or(inline("<empty label>")),
+            inline(format!(" {:?}", label.span)),
+        ]))
+    }
+
+    let border = Element::VStack(
+        vstack
+            .iter()
+            .enumerate()
+            .map(|(i, _)| i)
+            .chain(Some(vstack.len()))
+            .map(|i| {
+                dbg!(i);
+                inline(match i {
+                    0 => "   ╭─",
+                    _ if i == vstack.len() => "───╯ ",
+                    _ => "   │ ",
+                })
+            })
+            .collect(),
+    );
+
+    Element::HStack(vec![border, Element::VStack(vstack)])
 }
 
 fn compute_size(element: &Element) -> (usize, usize) {
@@ -109,9 +111,9 @@ fn compute_size(element: &Element) -> (usize, usize) {
 }
 
 fn fill_spaces(lines: &mut [String]) {
-    let width = lines.iter().map(|line| line.len()).max().unwrap_or(0);
+    let max_width = lines.iter().map(|line| line.width()).max().unwrap_or(0);
     for line in lines {
-        line.push_str(&" ".repeat(width - line.len()));
+        line.push_str(&" ".repeat(max_width - line.width()));
     }
 }
 
@@ -133,4 +135,20 @@ fn lines_cols(source: &str, location: usize, tab_width: u32) -> (usize, u32) {
         .unwrap_or(1);
 
     (lines, cols)
+}
+
+fn lines_enclosing_spans<'a>(source: &str, spans: impl Iterator<Item = &'a Span>) -> &str {
+    // Find smallest span that encloses all spans
+    let (start, end) = spans.fold((source.len(), 0), |(start, end), span| {
+        (start.min(span.start), end.max(span.end))
+    });
+
+    let first_line_start = source[..start]
+        .rfind(|c| c == '\n')
+        .map(|i| i + 1)
+        .unwrap_or(start);
+    let offset_end = &source[end..].find(|c| c == '\n').unwrap_or(0);
+    let last_line_end = end + offset_end;
+
+    &source[first_line_start..last_line_end]
 }

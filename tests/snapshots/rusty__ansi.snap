@@ -4,26 +4,29 @@ expression: result
 ---
 [1;31merror[E0412][0m: cannot find type `Lab` in this scope
    ╭─[test.rs:10:29]
-
-         view: Option<SourceView<Lab>>,
-
-=> not found in this scope 218..221
+   │ 
+   │     view: Option<SourceView<Lab>>,
+   │ 
+   │ => not found in this scope 218..221
+───╯ 
 [1;34mhelp[0m: you might be missing a type parameter
    ╭─[test.rs:10:29]
-
-         view: Option<SourceView<Lab>>,
-
-=> <empty label> 218..221
+   │ 
+   │     view: Option<SourceView<Lab>>,
+   │ 
+   │ => <empty label> 218..221
+───╯ 
 [1;31merror[E0425][0m: cannot find value `labels` in this scope
    ╭─[test.rs:65:24]
-
-         labels: Vec<Label<Level>>,
-     }
-     
-     impl<Level> SourceView<Level> {
-         pub fn new(source: &'static str) -> Self {
-             Self { source, labels }
-
-=> a field by that name exists in `Self` 1386..1411
-=> <empty label> 1518..1524
+   │ 
+   │     labels: Vec<Label<Level>>,
+   │ }
+   │ 
+   │ impl<Level> SourceView<Level> {
+   │     pub fn new(source: &'static str) -> Self {
+   │         Self { source, labels }
+   │ 
+   │ => a field by that name exists in `Self` 1386..1411
+   │ => <empty label> 1518..1524
+───╯ 
 
