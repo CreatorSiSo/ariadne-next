@@ -65,6 +65,7 @@ fn layout_view<SourceId>(view: &SourceView<SourceId>, cache: &mut impl Cache<Sou
         ]))
     }
 
+    // TODO Do not use hardcoded characters
     let border = Element::VStack(
         vstack
             .iter()
@@ -72,7 +73,6 @@ fn layout_view<SourceId>(view: &SourceView<SourceId>, cache: &mut impl Cache<Sou
             .map(|(i, _)| i)
             .chain(Some(vstack.len()))
             .map(|i| {
-                dbg!(i);
                 inline(match i {
                     0 => "   ╭─",
                     _ if i == vstack.len() => "───╯ ",
