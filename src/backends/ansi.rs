@@ -1,5 +1,5 @@
 use super::{layout, Render};
-use crate::tree::TextStyle;
+use crate::tree::{Inline, TextStyle};
 use crate::{Cache, Report};
 use std::io;
 use yansi::Paint;
@@ -16,13 +16,13 @@ impl<W: io::Write> crate::Backend for Ansi<W> {
         cache: &mut impl Cache<SourceId>,
     ) -> Result<(), Self::Error> {
         let element = layout(report, cache);
-        Self::render(&mut self.0, &element)
+        Self::render(&mut self.0, element)
     }
 }
 
 impl<W: io::Write> Render for Ansi<W> {
-    fn render_inline(inline: &crate::tree::Inline) -> impl std::fmt::Display {
-        Paint::new(&inline.text).with_style((&inline.style).into())
+    fn render_inline(inline: Inline) -> impl std::fmt::Display {
+        Paint::new(inline.text).with_style((&inline.style).into())
     }
 }
 

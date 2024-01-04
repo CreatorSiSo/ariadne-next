@@ -1,5 +1,5 @@
 use super::{layout, Render};
-use crate::{Cache, Report};
+use crate::{tree::Inline, Cache, Report};
 use std::io;
 
 pub struct PlainText<W: io::Write>(pub W);
@@ -14,12 +14,12 @@ impl<W: io::Write> crate::Backend for PlainText<W> {
         cache: &mut impl Cache<SourceId>,
     ) -> Result<(), Self::Error> {
         let element = layout(report, cache);
-        Self::render(&mut self.0, &element)
+        Self::render(&mut self.0, element)
     }
 }
 
 impl<W: io::Write> Render for PlainText<W> {
-    fn render_inline(inline: &crate::tree::Inline) -> impl std::fmt::Display {
-        &inline.text
+    fn render_inline(inline: Inline) -> impl std::fmt::Display {
+        inline.text
     }
 }

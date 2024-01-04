@@ -4,8 +4,8 @@ use std::io;
 use unicode_width::UnicodeWidthStr;
 
 pub(super) trait Render {
-    fn render(writer: &mut impl io::Write, element: &Element) -> Result<(), io::Error> {
-        let (_, height) = compute_size(element);
+    fn render(writer: &mut impl io::Write, element: Element) -> Result<(), io::Error> {
+        let (_, height) = compute_size(&element);
         let mut lines = Vec::from_iter((0..height).map(|_| String::new()));
 
         Self::render_element(&mut lines, element);
@@ -16,40 +16,46 @@ pub(super) trait Render {
         Ok(())
     }
 
-    fn render_element(lines: &mut [String], element: &Element) {
+    fn render_element(lines: &mut [String], element: Element) {
         match element {
-            Element::VStack(stack) => {
-                let mut start = 0;
-                for element in stack {
-                    let (_, height) = compute_size(element);
-                    Self::render_element(&mut lines[start..start + height], element);
-                    start += height;
-                }
-            }
-            Element::HStack(stack) => {
-                for element in stack {
-                    fill_spaces(lines);
-                    Self::render_element(lines, element);
-                }
-            }
-            this @ Element::Box { content, .. } => {
-                let (width, _) = compute_size(this);
-                let string: String = content.iter().map(|inline| inline.text.as_str()).collect();
-                assert!(!string.contains('\n'));
-
-                fill_spaces(lines);
-                for (index, chunk) in string.chars().chunks(width).into_iter().enumerate() {
-                    let line = &mut lines[index];
-                    for char in chunk {
-                        line.push(char);
-                    }
-                }
-            }
+            Element::VStack(elements) => Self::render_vstack(lines, elements),
+            Element::HStack(elements) => Self::render_hstack(lines, elements),
+            ref this @ Element::Box { ref content, .. } => Self::render_box(lines, this, content),
             Element::Inline(inline) => lines[0].push_str(&Self::render_inline(inline).to_string()),
         }
     }
 
-    fn render_inline(inline: &Inline) -> impl std::fmt::Display;
+    fn render_vstack(lines: &mut [String], elements: Vec<Element>) {
+        let mut start = 0;
+        for element in elements {
+            let (_, height) = compute_size(&element);
+            Self::render_element(&mut lines[start..start + height], element);
+            start += height;
+        }
+    }
+
+    fn render_hstack(lines: &mut [String], elements: Vec<Element>) {
+        for element in elements {
+            fill_spaces(lines);
+            Self::render_element(lines, element);
+        }
+    }
+
+    fn render_box(lines: &mut [String], element: &Element, content: &[Inline]) {
+        let string: String = content.iter().map(|inline| inline.text.as_str()).collect();
+        debug_assert!(!string.contains('\n'));
+
+        fill_spaces(lines);
+        let (width, _) = compute_size(element);
+        for (index, chunk) in string.chars().chunks(width).into_iter().enumerate() {
+            let line = &mut lines[index];
+            for char in chunk {
+                line.push(char);
+            }
+        }
+    }
+
+    fn render_inline(inline: Inline) -> impl std::fmt::Display;
 }
 
 fn fill_spaces(lines: &mut [String]) {
@@ -90,8 +96,8 @@ fn test_rendering() {
 
     struct TestBackend;
     impl Render for TestBackend {
-        fn render_inline(inline: &Inline) -> impl std::fmt::Display {
-            &inline.text
+        fn render_inline(inline: Inline) -> impl std::fmt::Display {
+            inline.text
         }
     }
 
@@ -112,7 +118,7 @@ fn test_rendering() {
     assert_eq!(compute_size(&element), (11, 6));
 
     let mut writer = Vec::new();
-    TestBackend::render(&mut writer, &element).unwrap();
+    TestBackend::render(&mut writer, element).unwrap();
     let output = String::from_utf8(writer).unwrap();
 
     // Expected:
