@@ -28,7 +28,7 @@ impl<W: io::Write> Ansi<W> {
         let (_, height) = compute_size(element);
         let mut lines = Vec::from_iter((0..height).map(|_| String::new()));
 
-        render_element(&mut lines, &element);
+        render_element(&mut lines, element);
 
         for line in lines {
             writeln!(self.0, "{line}")?;

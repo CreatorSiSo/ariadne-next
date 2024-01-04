@@ -201,16 +201,9 @@ impl Cache<()> for () {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct FileCache {
     files: HashMap<PathBuf, String>,
-}
-
-impl FileCache {
-    pub fn new() -> Self {
-        Self {
-            files: HashMap::new(),
-        }
-    }
 }
 
 impl Cache<PathBuf> for FileCache {

@@ -61,12 +61,7 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
 
         vstack.push(Element::HStack(vec![
             inline("     "),
-            Element::VStack(
-                content
-                    .lines()
-                    .map(|line| Element::Inline(line.inline_layout()))
-                    .collect(),
-            ),
+            Element::VStack(content.lines().map(inline).collect()),
         ]));
 
         vstack.push(inline(""));
@@ -92,11 +87,11 @@ fn compute_size(element: &Element) -> (usize, usize) {
     match element {
         Element::VStack(stack) => stack
             .iter()
-            .map(|element| compute_size(element))
+            .map(compute_size)
             .fold((0, 0), |(width, height), (w, h)| (width.max(w), height + h)),
         Element::HStack(stack) => stack
             .iter()
-            .map(|element| compute_size(element))
+            .map(compute_size)
             .fold((0, 0), |(width, height), (w, h)| (width + w, height.max(h))),
         Element::Box { content, width, .. } => {
             let len: usize = content.iter().map(|inline| inline.text.len()).sum();
