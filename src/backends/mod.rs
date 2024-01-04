@@ -4,12 +4,14 @@ use crate::tree::shortcuts::inline;
 use crate::tree::{Element, InlineLayout};
 use crate::{Cache, Label, Report, SourceView, Span};
 
+mod render;
+pub(self) use render::Render;
+
 mod plaintext;
 pub use plaintext::PlainText;
 
 mod ansi;
 pub use ansi::Ansi;
-use unicode_width::UnicodeWidthStr;
 
 fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>) -> Element {
     let mut vstack: Vec<Element> = vec![];
@@ -30,13 +32,16 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
     }
 
     if let Some(view) = &report.view {
-        vstack.push(layout_view(view, cache));
+        vstack.push(layout_source(view, cache));
     }
 
     Element::VStack(vstack)
 }
 
-fn layout_view<SourceId>(view: &SourceView<SourceId>, cache: &mut impl Cache<SourceId>) -> Element {
+fn layout_source<SourceId>(
+    view: &SourceView<SourceId>,
+    cache: &mut impl Cache<SourceId>,
+) -> Element {
     let mut vstack = vec![];
 
     let name = cache
@@ -83,38 +88,6 @@ fn layout_view<SourceId>(view: &SourceView<SourceId>, cache: &mut impl Cache<Sou
     );
 
     Element::HStack(vec![border, Element::VStack(vstack)])
-}
-
-fn compute_size(element: &Element) -> (usize, usize) {
-    match element {
-        Element::VStack(stack) => stack
-            .iter()
-            .map(compute_size)
-            .fold((0, 0), |(width, height), (w, h)| (width.max(w), height + h)),
-        Element::HStack(stack) => stack
-            .iter()
-            .map(compute_size)
-            .fold((0, 0), |(width, height), (w, h)| (width + w, height.max(h))),
-        Element::Box { content, width, .. } => {
-            let len: usize = content.iter().map(|inline| inline.text.len()).sum();
-            if let Some(width) = width {
-                (*width, len.div_ceil(*width))
-            } else {
-                (len, 1)
-            }
-        }
-        Element::Inline(inline) => (
-            inline.text.len(),
-            1, /* TODO Set this to 0 when text is empty? */
-        ),
-    }
-}
-
-fn fill_spaces(lines: &mut [String]) {
-    let max_width = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-    for line in lines {
-        line.push_str(&" ".repeat(max_width - line.width()));
-    }
 }
 
 fn lines_cols(source: &str, location: usize, tab_width: u32) -> (usize, u32) {
