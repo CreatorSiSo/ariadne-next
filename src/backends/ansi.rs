@@ -82,7 +82,6 @@ impl From<&TextStyle> for yansi::Style {
         if let Some(bg_color) = &value.bg_color {
             style = style.bg(*bg_color);
         }
-        dbg!(value);
         if value.is_bold() {
             style = style.bold();
         }
