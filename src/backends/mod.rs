@@ -29,16 +29,16 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
     }
 
     if let Some(view) = &report.view {
-        vstack.push(inline(format!(
-            "   ╭─[{}:255:9]",
-            cache
-                .display_id(&view.source_id)
-                .map(|id| id.to_string())
-                .unwrap_or("<unkown>".into())
-        )));
-        vstack.push(inline(""));
+        let name = cache
+            .display_id(&view.source_id)
+            .map(|id| id.to_string())
+            .unwrap_or("<unkown>".into());
 
         let source = cache.fetch(&view.source_id).unwrap();
+
+        let (lines, cols) = lines_cols(source, view.location, 4);
+        vstack.push(inline(format!("   ╭─[{name}:{lines}:{cols}]")));
+        vstack.push(inline(""));
 
         // Find smallest span that encloses all label spans
         let (start, end) = view
@@ -118,4 +118,24 @@ fn fill_spaces(lines: &mut [String]) {
     for line in lines {
         line.push_str(&" ".repeat(width - line.len()));
     }
+}
+
+fn lines_cols(source: &str, location: usize, tab_width: u32) -> (usize, u32) {
+    let source_before = &source[..location];
+    let lines = source_before.lines().count();
+    let cols = source_before
+        .lines()
+        .last()
+        .map(|line| {
+            1 + line
+                .chars()
+                .map(|c| match c {
+                    '\t' => tab_width,
+                    _ => 1,
+                })
+                .sum::<u32>()
+        })
+        .unwrap_or(1);
+
+    (lines, cols)
 }

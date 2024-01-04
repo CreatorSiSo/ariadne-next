@@ -99,13 +99,15 @@ impl<SourceId> Report<SourceId> {
 /// Annotated section of source code
 pub struct SourceView<Id> {
     source_id: Id,
+    location: usize,
     labels: Vec<Label>,
 }
 
 impl<Id> SourceView<Id> {
-    pub fn new(source_id: Id) -> Self {
+    pub fn new(source_id: Id, location: usize) -> Self {
         Self {
             source_id,
+            location,
             labels: vec![],
         }
     }

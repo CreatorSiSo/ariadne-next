@@ -1,21 +1,21 @@
 ---
 source: tests/rusty.rs
-expression: render_plainext()
+expression: result
 ---
 error[E0412]: cannot find type `Lab` in this scope
-   ╭─[test.rs:255:9]
+   ╭─[test.rs:10:29]
 
          view: Option<SourceView<Lab>>,
 
 => not found in this scope 218..221
 help: you might be missing a type parameter
-   ╭─[test.rs:255:9]
+   ╭─[test.rs:10:29]
 
          view: Option<SourceView<Lab>>,
 
 => <empty label> 218..221
 error[E0425]: cannot find value `labels` in this scope
-   ╭─[test.rs:255:9]
+   ╭─[test.rs:65:24]
 
          labels: Vec<Label<Level>>,
      }

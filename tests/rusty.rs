@@ -36,16 +36,16 @@ fn reports() -> [Report<&'static str>; 3] {
             .with_code("E0412")
             .with_message("cannot find type `Lab` in this scope")
             .with_view(
-                SourceView::new("test.rs")
+                SourceView::new("test.rs", 218)
                     .with_label(Label::new(218..221).with_message("not found in this scope")),
             ),
         Report::new(ReportKind::Help)
             .with_message("you might be missing a type parameter")
-            .with_view(SourceView::new("test.rs").with_label(Label::new(218..221))),
+            .with_view(SourceView::new("test.rs", 218).with_label(Label::new(218..221))),
         Report::new(ReportKind::Error)
             .with_code("E0425")
             .with_message("cannot find value `labels` in this scope")
-            .with_view(SourceView::new("test.rs").with_labels([
+            .with_view(SourceView::new("test.rs", 1518).with_labels([
                 Label::new(1386..1411).with_message("a field by that name exists in `Self`"),
                 Label::new(1518..1524),
             ])),
