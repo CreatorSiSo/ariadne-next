@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 use std::{fmt, fs, io};
 
 pub mod tree;
-use tree::{Element, ElementLayout, Inline, InlineLayout};
+use tree::{Element, ElementLayout};
 
 mod backends;
 pub use backends::{Ansi, PlainText};
@@ -19,18 +19,16 @@ pub enum ReportKind {
 }
 
 // TODO Setting the styling should not be hard coded (and happen later on)
-impl InlineLayout for &ReportKind {
-    fn inline_layout(self) -> Inline {
-        use crate::tree::*;
-        let base_style = TextStyle::new().with_bold();
+impl ElementLayout for &ReportKind {
+    fn element_layout(self) -> Element {
+        use crate::tree::{Style, Styled};
+        let base_style = Style::new().with_bold();
 
         match self {
-            ReportKind::Error => Inline::new("error").with_style(base_style.with_fg(Color::Red)),
-            ReportKind::Warning => {
-                Inline::new("warning").with_style(base_style.with_fg(Color::Yellow))
-            }
-            ReportKind::Help => Inline::new("help").with_style(base_style.with_fg(Color::Blue)),
-            ReportKind::Note => Inline::new("note").with_style(base_style.with_fg(Color::White)),
+            ReportKind::Error => "error".with_style(base_style.with_fg(Color::Red)),
+            ReportKind::Warning => "warning".with_style(base_style.with_fg(Color::Yellow)),
+            ReportKind::Help => "help".with_style(base_style.with_fg(Color::Blue)),
+            ReportKind::Note => "note".with_style(base_style.with_fg(Color::White)),
         }
     }
 }

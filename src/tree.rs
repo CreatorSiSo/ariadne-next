@@ -1,79 +1,140 @@
 use crate::Color;
 
-#[derive(Debug, Clone)]
-pub enum Element {
-    VStack(Vec<Element>),
-    HStack(Vec<Element>),
-    Box {
-        content: Vec<Inline>,
-        width: Option<usize>,
-        style: TextStyle,
-    },
-    Inline(Inline),
-}
-
+// TODO Replace with From<T>
 pub trait ElementLayout {
     fn element_layout(self) -> Element;
 }
 
-impl<T: InlineLayout> ElementLayout for T {
+impl<T: std::fmt::Display> ElementLayout for T {
     fn element_layout(self) -> Element {
-        Element::Inline(self.inline_layout())
-    }
-}
-
-impl ElementLayout for Inline {
-    fn element_layout(self) -> Element {
-        Element::Inline(self)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Inline {
-    pub text: String,
-    pub style: TextStyle,
-}
-
-impl Inline {
-    pub fn new(text: impl Into<String>) -> Self {
-        Self {
-            text: text.into(),
-            style: TextStyle::default(),
+        Element::Inline {
+            text: self.to_string(),
+            style: Style::default(),
         }
     }
 }
 
-pub trait InlineLayout {
-    fn inline_layout(self) -> Inline;
+// TODO Explain all kinds of elements
+#[derive(Debug, Clone)]
+pub enum Element {
+    VStack {
+        children: Vec<Element>,
+        style: Style,
+    },
+    HStack {
+        children: Vec<Element>,
+        style: Style,
+    },
+    // Example of wrapping:
+    // --------------------------------------------
+    // | Inline | VStack | Box with width | Inlin |
+    // |--------| VStack | an some wrappi |--------
+    // |        | VStack | ng content     |       |
+    // |        | VStack |-----------------       |
+    // |        | VStack |                        |
+    // |--------------------------                |
+    // | e that doesnt quiet fit |                |
+    // |--------------------------------------    |
+    // | Elements that wont be broken apart: |    |
+    // | - VStacks (like this one)           |    |
+    // | - HStacks                           |    |
+    // | - Boxes with width                  |    |
+    // --------------------------------------------
+    Box {
+        children: Vec<Element>,
+        /// Unicode width of the content
+        /// - Some: Height is adjusted to fit the entire content
+        /// - None: Height is always that of the tallest child
+        width: Option<usize>,
+        style: Style,
+    },
+    Inline {
+        text: String,
+        style: Style,
+    },
 }
 
-impl<T: std::fmt::Display> InlineLayout for T {
-    fn inline_layout(self) -> Inline {
-        Inline::new(self.to_string())
+impl Element {
+    pub fn vstack(elements: impl IntoIterator<Item = Element>) -> Self {
+        Self::VStack {
+            children: elements.into_iter().collect(),
+            style: Style::default(),
+        }
+    }
+
+    pub fn hstack(elements: impl IntoIterator<Item = Element>) -> Self {
+        Self::HStack {
+            children: elements.into_iter().collect(),
+            style: Style::default(),
+        }
+    }
+
+    pub fn box_(elements: impl IntoIterator<Item = Element>, width: Option<usize>) -> Self {
+        Self::Box {
+            children: elements.into_iter().collect(),
+            width,
+            style: Style::default(),
+        }
+    }
+
+    pub fn inline(text: impl ToString) -> Self {
+        Self::Inline {
+            text: text.to_string(),
+            style: Style::default(),
+        }
+    }
+
+    pub fn style(&self) -> &Style {
+        match self {
+            Element::VStack { style, .. } => style,
+            Element::HStack { style, .. } => style,
+            Element::Box { style, .. } => style,
+            Element::Inline { style, .. } => style,
+        }
+    }
+}
+
+impl Styled<Element> for Element {
+    fn with_style(self, style: Style) -> Element {
+        match self {
+            Element::VStack {
+                children: elements, ..
+            } => Element::VStack {
+                children: elements,
+                style,
+            },
+            Element::HStack {
+                children: elements, ..
+            } => Element::HStack {
+                children: elements,
+                style,
+            },
+            Element::Box {
+                children: elements,
+                width,
+                ..
+            } => Element::Box {
+                children: elements,
+                width,
+                style,
+            },
+            Element::Inline { text, .. } => Element::Inline { text, style },
+        }
+    }
+}
+
+impl<T: ElementLayout> Styled<Element> for T {
+    fn with_style(self, style: Style) -> Element {
+        self.element_layout().with_style(style)
     }
 }
 
 pub trait Styled<T> {
-    fn with_style(self, style: TextStyle) -> T;
-}
-
-impl Styled<Inline> for Inline {
-    fn with_style(mut self, style: TextStyle) -> Inline {
-        self.style = style;
-        self
-    }
-}
-
-impl<T: InlineLayout> Styled<Inline> for T {
-    fn with_style(self, style: TextStyle) -> Inline {
-        let mut inline = self.inline_layout();
-        inline.style = style;
-        inline
-    }
+    fn with_style(self, style: Style) -> T;
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct TextStyle {
+pub struct Style {
     /// Color of the text
     pub fg_color: Option<Color>,
     /// Color of the background
@@ -82,7 +143,7 @@ pub struct TextStyle {
     flags: TextStyleFlags,
 }
 
-impl TextStyle {
+impl Style {
     pub fn new() -> Self {
         Self::default()
     }
@@ -150,12 +211,4 @@ pub enum BasicColor {
     Magenta,
     Cyan,
     White,
-}
-
-pub mod shortcuts {
-    use super::{Element, InlineLayout};
-
-    pub fn inline(text: impl InlineLayout) -> Element {
-        Element::Inline(text.inline_layout())
-    }
 }

@@ -1,7 +1,4 @@
-use std::fmt::Write;
-
-use crate::tree::shortcuts::inline;
-use crate::tree::{Element, InlineLayout};
+use crate::tree::{Element, ElementLayout, Styled};
 use crate::{Cache, Label, Report, SourceView, Span};
 
 mod render;
@@ -19,23 +16,25 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
     {
         let mut hstack = vec![];
 
-        let mut kind = report.kind.inline_layout();
+        let kind = report.kind.element_layout();
+        let kind_style = kind.style().clone();
+        hstack.push(kind);
         if let Some(code) = &report.code {
-            kind.text.write_fmt(format_args!("[{code}]")).unwrap();
+            // TODO Subobptimal should be combined with kind element
+            hstack.push(format!("[{code}]").with_style(kind_style));
         }
-        hstack.push(Element::Inline(kind));
 
-        hstack.push(inline(": "));
+        hstack.push(Element::inline(": "));
 
         hstack.extend(report.message.iter().cloned());
-        vstack.push(Element::HStack(hstack));
+        vstack.push(Element::hstack(hstack));
     }
 
     if let Some(view) = &report.view {
         vstack.push(layout_source(view, cache));
     }
 
-    Element::VStack(vstack)
+    Element::vstack(vstack)
 }
 
 fn layout_source<SourceId>(
@@ -52,42 +51,44 @@ fn layout_source<SourceId>(
     let source = cache.fetch(&view.source_id).unwrap();
 
     let (lines, cols) = lines_cols(source, view.location, 4);
-    vstack.push(inline(format!("[{name}:{lines}:{cols}]")));
+    vstack.push(Element::inline(format!("[{name}:{lines}:{cols}]")));
 
-    vstack.push(inline(""));
+    vstack.push(Element::inline(""));
 
     let block = lines_enclosing_spans(source, view.labels.iter().map(|Label { span, .. }| span));
-    vstack.extend(block.lines().map(inline));
+    vstack.extend(block.lines().map(Element::inline));
 
-    vstack.push(inline(""));
+    vstack.push(Element::inline(""));
 
     // TODO How to build Elements for labels?
     for label in &view.labels {
-        vstack.push(Element::HStack(vec![
-            inline("=> "),
-            label.message.clone().unwrap_or(inline("<empty label>")),
-            inline(format!(" {:?}", label.span)),
+        vstack.push(Element::hstack([
+            Element::inline("=> "),
+            label
+                .message
+                .clone()
+                .unwrap_or(Element::inline("<empty label>")),
+            Element::inline(format!(" {:?}", label.span)),
         ]))
     }
 
     // TODO Do not use hardcoded characters
-    let border = Element::VStack(
+    let border = Element::vstack(
         vstack
             .iter()
             .enumerate()
             .map(|(i, _)| i)
             .chain(Some(vstack.len()))
             .map(|i| {
-                inline(match i {
+                Element::inline(match i {
                     0 => "   ╭─",
                     _ if i == vstack.len() => "───╯ ",
                     _ => "   │ ",
                 })
-            })
-            .collect(),
+            }),
     );
 
-    Element::HStack(vec![border, Element::VStack(vstack)])
+    Element::hstack([border, Element::vstack(vstack)])
 }
 
 fn lines_cols(source: &str, location: usize, tab_width: u32) -> (usize, u32) {

@@ -1,8 +1,6 @@
 use super::{layout, Render};
-use crate::tree::{Inline, TextStyle};
-use crate::{Cache, Report};
+use crate::{tree::Style, Cache, Report};
 use std::io;
-use yansi::Paint;
 
 pub struct Ansi<W: io::Write>(pub W);
 pub type AnsiError = io::Error;
@@ -16,18 +14,22 @@ impl<W: io::Write> crate::Backend for Ansi<W> {
         cache: &mut impl Cache<SourceId>,
     ) -> Result<(), Self::Error> {
         let element = layout(report, cache);
-        Self::render(&mut self.0, element)
+        Self::render(&mut self.0, &element)
     }
 }
 
 impl<W: io::Write> Render for Ansi<W> {
-    fn render_inline(inline: Inline) -> impl std::fmt::Display {
-        Paint::new(inline.text).with_style((&inline.style).into())
+    fn write_style_prefix(string: &mut String, style: &Style) {
+        yansi::Style::from(style).fmt_prefix(string).unwrap();
+    }
+
+    fn write_style_suffix(string: &mut String, style: &Style) {
+        yansi::Style::from(style).fmt_suffix(string).unwrap();
     }
 }
 
-impl From<&TextStyle> for yansi::Style {
-    fn from(value: &TextStyle) -> Self {
+impl From<&crate::tree::Style> for yansi::Style {
+    fn from(value: &crate::tree::Style) -> Self {
         let mut style = yansi::Style::default();
         if let Some(fg_color) = &value.fg_color {
             style = style.fg(*fg_color);
