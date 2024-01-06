@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 use std::{fmt, fs, io};
 
 pub mod tree;
-use tree::{Element, ElementLayout};
+use tree::{Element, Layout};
 
 mod backends;
 pub use backends::{Ansi, PlainText};
@@ -18,9 +18,9 @@ pub enum ReportKind {
     Note,
 }
 
-// TODO Setting the styling should not be hard coded (and happen later on)
-impl ElementLayout for &ReportKind {
-    fn element_layout(self) -> Element {
+// TODO Setting the styling should not be hard coded (and maybe happen later on)
+impl Layout for &ReportKind {
+    fn layout(self) -> Element {
         use crate::tree::{Style, Styled};
         let base_style = Style::new().with_bold();
 
@@ -66,13 +66,13 @@ impl<SourceId> Report<SourceId> {
         self.view = Some(view);
     }
 
-    pub fn with_message(mut self, message: impl ElementLayout) -> Self {
-        self.message.push(message.element_layout());
+    pub fn with_message(mut self, message: impl Layout) -> Self {
+        self.message.push(message.layout());
         self
     }
 
-    pub fn set_message(&mut self, message: impl ElementLayout) {
-        self.message.push(message.element_layout());
+    pub fn set_message(&mut self, message: impl Layout) {
+        self.message.push(message.layout());
     }
 
     pub fn with_code(mut self, code: impl fmt::Display) -> Self {
@@ -143,13 +143,13 @@ impl Label {
         }
     }
 
-    pub fn with_message(mut self, message: impl ElementLayout) -> Self {
-        self.message = Some(message.element_layout());
+    pub fn with_message(mut self, message: impl Layout) -> Self {
+        self.message = Some(message.layout());
         self
     }
 
-    pub fn set_message(&mut self, message: impl ElementLayout) {
-        self.message = Some(message.element_layout());
+    pub fn set_message(&mut self, message: impl Layout) {
+        self.message = Some(message.layout());
     }
 }
 

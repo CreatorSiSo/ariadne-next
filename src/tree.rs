@@ -1,12 +1,12 @@
 use crate::Color;
 
-// TODO Replace with From<T>
-pub trait ElementLayout {
-    fn element_layout(self) -> Element;
+// TODO Replace with From<T>?
+pub trait Layout {
+    fn layout(self) -> Element;
 }
 
-impl<T: std::fmt::Display> ElementLayout for T {
-    fn element_layout(self) -> Element {
+impl<T: std::fmt::Display> Layout for T {
+    fn layout(self) -> Element {
         Element::Inline {
             text: self.to_string(),
             style: Style::default(),
@@ -123,9 +123,9 @@ impl Styled<Element> for Element {
     }
 }
 
-impl<T: ElementLayout> Styled<Element> for T {
+impl<T: Layout> Styled<Element> for T {
     fn with_style(self, style: Style) -> Element {
-        self.element_layout().with_style(style)
+        self.layout().with_style(style)
     }
 }
 

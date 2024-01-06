@@ -1,4 +1,4 @@
-use crate::tree::{Element, ElementLayout, Styled};
+use crate::tree::{Element, Layout, Styled};
 use crate::{Cache, Label, Report, SourceView, Span};
 
 mod render;
@@ -16,7 +16,7 @@ fn layout<SourceId>(report: &Report<SourceId>, cache: &mut impl Cache<SourceId>)
     {
         let mut hstack = vec![];
 
-        let kind = report.kind.element_layout();
+        let kind = report.kind.layout();
         let kind_style = kind.style().clone();
         hstack.push(kind);
         if let Some(code) = &report.code {
