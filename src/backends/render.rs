@@ -5,7 +5,7 @@ use unicode_width::UnicodeWidthStr;
 
 pub(super) trait Render {
     fn render(writer: &mut impl io::Write, element: &Element) -> Result<(), io::Error> {
-        let (_, height) = compute_size(element);
+        let (_, height) = element_size(element);
         let mut lines = Vec::from_iter((0..height).map(|_| String::new()));
 
         Self::render_element(&mut lines, element);
@@ -36,7 +36,7 @@ pub(super) trait Render {
     fn render_vstack(lines: &mut [String], elements: &[Element]) {
         let mut start = 0;
         for element in elements {
-            let (_, height) = compute_size(element);
+            let (_, height) = element_size(element);
             Self::render_element(&mut lines[start..start + height], element);
             start += height;
         }
@@ -52,7 +52,7 @@ pub(super) trait Render {
     fn render_box(lines: &mut [String], box_: &Element, elements: &[Element]) {
         fill_spaces(lines);
 
-        let (bow_width, _) = compute_size(box_);
+        let (bow_width, _) = element_size(box_);
         for element in elements {
             if let Element::Inline { text, style } = element {
                 Self::write_style_prefix(lines.first_mut().unwrap(), style);
@@ -78,71 +78,71 @@ fn fill_spaces(lines: &mut [String]) {
     }
 }
 
-fn compute_size(element: &Element) -> (usize, usize) {
+// TODO Does it make sense to avoid recalculations of the sizes?
+// TODO We could compute a tree of sizes, or attach the size to each element, ...
+fn element_size(element: &Element) -> (usize, usize) {
     match element {
-        Element::VStack {
-            children: elements, ..
-        } => elements
+        Element::VStack { children, .. } => children
             .iter()
-            .map(compute_size)
+            .map(element_size)
             .fold((0, 0), |(width, height), (w, h)| (width.max(w), height + h)),
-        Element::HStack {
-            children: elements, ..
-        } => elements
+        Element::HStack { children, .. } => children
             .iter()
-            .map(compute_size)
+            .map(element_size)
             .fold((0, 0), |(width, height), (w, h)| (width + w, height.max(h))),
         Element::Box {
-            children: elements,
-            width: max_width,
-            ..
-        } => {
-            let Some(box_width) = max_width else {
-                // No width is set, so nothing will be wrapped
-                return elements
-                    .iter()
-                    .map(compute_size)
-                    .reduce(|(width_sum, height_max), (width, height)| {
-                        (width_sum + width, height_max.max(height))
-                    })
-                    .unwrap_or((0, 1));
-            };
-            let mut box_height = 1;
-
-            let mut row_width = 0;
-            let mut row_height = 1;
-
-            for element in elements {
-                let (elem_width, elem_height) = compute_size(element);
-
-                if matches!(element, Element::Inline { .. }) {
-                    // Break text up over multiple rows
-                    box_height += (row_width + elem_width - box_width) / *box_width;
-                    row_width = (row_width + elem_width) % *box_width;
-                    continue;
-                }
-
-                if row_width + elem_width > *box_width {
-                    // Render element in next row
-                    box_height += row_height;
-                    row_width = elem_width;
-                    row_height = elem_height;
-                } else {
-                    // Render element on the same row
-                    row_height = row_height.max(elem_height);
-                    row_width += elem_width;
-                }
-            }
-
-            (*box_width, box_height)
-        }
+            children, width, ..
+        } => box_size(children, width),
         Element::Inline { text, .. } => (text.width(), 1),
     }
 }
 
+// TODO Refactor + more comments?
+/// See the documentation of [`Element::Box`] on what this computes
+fn box_size(children: &[Element], max_width: &Option<usize>) -> (usize, usize) {
+    let Some(box_width) = max_width else {
+        // No width is set, so nothing will be wrapped
+        return children
+            .iter()
+            .map(element_size)
+            .reduce(|(width_sum, height_max), (width, height)| {
+                (width_sum + width, height_max.max(height))
+            })
+            .unwrap_or((0, 1));
+    };
+    let mut box_height = 1;
+
+    let mut row_width = 0;
+    let mut row_height = 1;
+
+    for element in children {
+        let (elem_width, elem_height) = element_size(element);
+
+        if matches!(element, Element::Inline { .. }) {
+            // Break text up over multiple rows
+            box_height += (row_width + elem_width - box_width) / *box_width;
+            row_width = (row_width + elem_width) % *box_width;
+            continue;
+        }
+
+        if row_width + elem_width > *box_width {
+            // Render element in next row
+            box_height += row_height;
+            row_width = elem_width;
+            row_height = elem_height;
+        } else {
+            // Render element on the same row
+            row_height = row_height.max(elem_height);
+            row_width += elem_width;
+        }
+    }
+
+    (*box_width, box_height)
+}
+
 #[must_use]
 /// Splits a &[`str`] into chunks,
-/// so that the unicode width is smaller or equal than the provided one
+/// so that the unicode width is at most the given width
 struct WidthChunks<'a> {
     /// How many chunks this iterator will produce.
     len: usize,
@@ -255,7 +255,7 @@ fn test_rendering() {
         ]),
         Element::inline("test3"),
     ]);
-    assert_eq!(compute_size(&element), (11, 6));
+    assert_eq!(element_size(&element), (11, 6));
 
     let mut writer = Vec::new();
     TestBackend::render(&mut writer, &element).unwrap();
