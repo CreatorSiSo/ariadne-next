@@ -26,10 +26,10 @@ impl ReportKind {
         let base_style = Style::new().bold();
 
         match self {
-            ReportKind::Error => Styled::new("error".into(), base_style.fg(Color::Red)),
-            ReportKind::Warning => Styled::new("warning".into(), base_style.fg(Color::Yellow)),
-            ReportKind::Help => Styled::new("help".into(), base_style.fg(Color::Blue)),
-            ReportKind::Note => Styled::new("note".into(), base_style.fg(Color::White)),
+            ReportKind::Error => Styled::new("Error".into(), base_style.fg(Color::Red)),
+            ReportKind::Warning => Styled::new("Warning".into(), base_style.fg(Color::Yellow)),
+            ReportKind::Help => Styled::new("Help".into(), base_style.fg(Color::Blue)),
+            ReportKind::Note => Styled::new("Note".into(), base_style.fg(Color::Green)),
         }
     }
 }
@@ -68,7 +68,7 @@ impl<'a, SourceId> Report<'a, SourceId> {
     }
 
     pub fn with_code(mut self, code: impl fmt::Display) -> Self {
-        self.code = Some(code.to_string());
+        self.code = Some(format!("{code:02}"));
         self
     }
 
