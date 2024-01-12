@@ -3,21 +3,21 @@ source: tests/rusty.rs
 expression: result
 ---
 [E0412] Error: cannot find type `Lab` in this scope
-   ╭─[test.rs:10:29]
+   ╭─[src/lib.rs:10:29]
    │ 
    │     view: Option<SourceView<Lab>>,
    │ 
    │ => not found in this scope 218..221
 ───╯ 
 Help: you might be missing a type parameter
-   ╭─[test.rs:10:29]
+   ╭─[src/lib.rs:10:29]
    │ 
    │     view: Option<SourceView<Lab>>,
    │ 
    │ => <empty label> 218..221
 ───╯ 
 [E0425] Error: cannot find value `labels` in this scope
-   ╭─[test.rs:65:24]
+   ╭─[src/lib.rs:65:24]
    │ 
    │     labels: Vec<Label<Level>>,
    │ }
@@ -29,4 +29,5 @@ Help: you might be missing a type parameter
    │ => a field by that name exists in `Self` 1386..1411
    │ => <empty label> 1518..1524
 ───╯ 
+Error: could not compile `ariadne-next` (lib) due to 2 previous errors
 
