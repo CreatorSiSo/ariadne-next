@@ -1,8 +1,9 @@
+use std::borrow::Cow;
 use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 use std::{fmt, fs, io};
 
 pub mod tree;
-use tree::{Element, Layout};
+use tree::{Style, Styled};
 
 mod backends;
 pub use backends::{Ansi, PlainText};
@@ -10,6 +11,7 @@ pub use backends::{Ansi, PlainText};
 pub type Color = yansi::Color;
 pub type Span = std::ops::Range<usize>;
 
+#[derive(Debug, Clone, Copy)]
 // TODO Allow user to define their own ReportKind?
 pub enum ReportKind {
     Error,
@@ -19,32 +21,31 @@ pub enum ReportKind {
 }
 
 // TODO Setting the styling should not be hard coded (and maybe happen later on)
-impl Layout for &ReportKind {
-    fn layout(self) -> Element {
-        use crate::tree::{Style, Styled};
-        let base_style = Style::new().with_bold();
+impl ReportKind {
+    fn styled(&self) -> Styled<Cow<'static, str>> {
+        let base_style = Style::new().bold();
 
         match self {
-            ReportKind::Error => "error".with_style(base_style.with_fg(Color::Red)),
-            ReportKind::Warning => "warning".with_style(base_style.with_fg(Color::Yellow)),
-            ReportKind::Help => "help".with_style(base_style.with_fg(Color::Blue)),
-            ReportKind::Note => "note".with_style(base_style.with_fg(Color::White)),
+            ReportKind::Error => Styled::new("error".into(), base_style.fg(Color::Red)),
+            ReportKind::Warning => Styled::new("warning".into(), base_style.fg(Color::Yellow)),
+            ReportKind::Help => Styled::new("help".into(), base_style.fg(Color::Blue)),
+            ReportKind::Note => Styled::new("note".into(), base_style.fg(Color::White)),
         }
     }
 }
 
 #[must_use]
-pub struct Report<SourceId> {
+pub struct Report<'a, SourceId> {
     kind: ReportKind,
     code: Option<String>,
-    message: Vec<tree::Element>,
+    message: Vec<StyledStr<'a>>,
     /// Annotated section of source code
-    view: Option<SourceView<SourceId>>,
+    views: Vec<SourceView<'a, SourceId>>,
     /// Help or note messages
-    comments: Vec<(ReportKind, String)>,
+    comments: Vec<(ReportKind, Vec<StyledStr<'a>>)>,
 }
 
-impl<SourceId> Report<SourceId> {
+impl<'a, SourceId> Report<'a, SourceId> {
     // TODO Comments
 
     pub fn new(kind: ReportKind) -> Self {
@@ -52,27 +53,18 @@ impl<SourceId> Report<SourceId> {
             kind,
             code: None,
             message: vec![],
-            view: None,
+            views: vec![],
             comments: vec![],
         }
     }
 
-    pub fn with_view(mut self, view: SourceView<SourceId>) -> Self {
-        self.view = Some(view);
+    pub fn with_message(mut self, message: impl StyledText<'a>) -> Self {
+        self.message = message.parts_vec();
         self
     }
 
-    pub fn set_view(&mut self, view: SourceView<SourceId>) {
-        self.view = Some(view);
-    }
-
-    pub fn with_message(mut self, message: impl Layout) -> Self {
-        self.message.push(message.layout());
-        self
-    }
-
-    pub fn set_message(&mut self, message: impl Layout) {
-        self.message.push(message.layout());
+    pub fn set_message(&mut self, message: impl StyledText<'a>) {
+        self.message = message.parts_vec();
     }
 
     pub fn with_code(mut self, code: impl fmt::Display) -> Self {
@@ -82,6 +74,24 @@ impl<SourceId> Report<SourceId> {
 
     pub fn set_code(&mut self, code: impl Into<String>) {
         self.code = Some(code.into());
+    }
+
+    pub fn with_view(mut self, view: SourceView<'a, SourceId>) -> Self {
+        self.views.push(view);
+        self
+    }
+
+    pub fn add_view(&mut self, view: SourceView<'a, SourceId>) {
+        self.views.push(view);
+    }
+
+    pub fn with_comment(mut self, kind: ReportKind, comment: impl StyledText<'a>) -> Self {
+        self.comments.push((kind, comment.parts_vec()));
+        self
+    }
+
+    pub fn set_comment(&mut self, kind: ReportKind, comment: impl StyledText<'a>) {
+        self.comments.push((kind, comment.parts_vec()));
     }
 
     pub fn write<B: Backend>(
@@ -95,13 +105,13 @@ impl<SourceId> Report<SourceId> {
 
 #[derive(Debug)]
 /// Annotated section of source code
-pub struct SourceView<Id> {
+pub struct SourceView<'a, Id> {
     source_id: Id,
     location: usize,
-    labels: Vec<Label>,
+    labels: Vec<Label<'a>>,
 }
 
-impl<Id> SourceView<Id> {
+impl<'a, Id> SourceView<'a, Id> {
     pub fn new(source_id: Id, location: usize) -> Self {
         Self {
             source_id,
@@ -110,46 +120,99 @@ impl<Id> SourceView<Id> {
         }
     }
 
-    pub fn with_label(mut self, label: Label) -> Self {
+    pub fn with_label(mut self, label: Label<'a>) -> Self {
         self.labels.push(label);
         self
     }
 
-    pub fn with_labels(mut self, labels: impl IntoIterator<Item = Label>) -> Self {
+    pub fn with_labels(mut self, labels: impl IntoIterator<Item = Label<'a>>) -> Self {
         self.labels.extend(labels);
         self
     }
 
-    pub fn add_label(&mut self, label: Label) {
+    pub fn add_label(&mut self, label: Label<'a>) {
         self.labels.push(label);
     }
 
-    pub fn add_labels(&mut self, labels: impl IntoIterator<Item = Label>) {
+    pub fn add_labels(&mut self, labels: impl IntoIterator<Item = Label<'a>>) {
         self.labels.extend(labels);
     }
 }
 
 #[derive(Debug)]
-pub struct Label {
+pub struct Label<'a> {
     span: Span,
-    message: Option<Element>,
+    message: Option<Vec<Styled<Cow<'a, str>>>>,
+    color: Color,
 }
 
-impl Label {
+impl<'a> Label<'a> {
     pub fn new(span: Span) -> Self {
         Self {
             span,
             message: None,
+            color: Color::Unset,
         }
     }
 
-    pub fn with_message(mut self, message: impl Layout) -> Self {
-        self.message = Some(message.layout());
+    pub fn with_message(mut self, message: impl StyledText<'a>) -> Self {
+        self.message = Some(message.parts_vec());
         self
     }
 
-    pub fn set_message(&mut self, message: impl Layout) {
-        self.message = Some(message.layout());
+    pub fn set_message(&mut self, message: impl StyledText<'a>) {
+        self.message = Some(message.parts_vec());
+    }
+
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    pub fn set_color(&mut self, color: Color) {
+        self.color = color;
+    }
+}
+
+type StyledStr<'a> = Styled<Cow<'a, str>>;
+
+impl<'a> From<&'a str> for StyledStr<'a> {
+    fn from(value: &'a str) -> Self {
+        Styled::new(value.into(), Style::default())
+    }
+}
+
+pub trait StyledText<'a> {
+    fn parts_vec(self) -> Vec<StyledStr<'a>>;
+}
+
+impl<'a> StyledText<'a> for &'a str {
+    fn parts_vec(self) -> Vec<StyledStr<'a>> {
+        vec![Styled::new(self.into(), Style::default())]
+    }
+}
+
+impl<'a> StyledText<'a> for String {
+    fn parts_vec(self) -> Vec<StyledStr<'a>> {
+        vec![Styled::new(self.into(), Style::default())]
+    }
+}
+
+impl<'a> StyledText<'a> for &[StyledStr<'a>] {
+    fn parts_vec(self) -> Vec<StyledStr<'a>> {
+        self.into()
+    }
+}
+
+impl<'a, const L: usize> StyledText<'a> for [StyledStr<'a>; L] {
+    fn parts_vec(self) -> Vec<StyledStr<'a>> {
+        self.into()
+    }
+}
+
+impl<'a> StyledText<'a> for Vec<StyledStr<'a>> {
+    fn parts_vec(self) -> Vec<StyledStr<'a>> {
+        self
     }
 }
 
@@ -166,7 +229,20 @@ pub trait Cache<Id: ?Sized> {
     fn display_id<'a>(&self, id: &'a Id) -> Option<Self::DisplayedId<'a>>;
 }
 
-impl<'a> Cache<&'a str> for &[(&'a str, &str)] {
+impl<Id, C: Cache<Id>> Cache<Id> for &mut C {
+    type Error = C::Error;
+    type DisplayedId<'a> = C::DisplayedId<'a> where Id: 'a;
+
+    fn fetch(&mut self, id: &Id) -> Result<&str, Self::Error> {
+        C::fetch(self, id)
+    }
+
+    fn display_id<'b>(&self, id: &'b Id) -> Option<Self::DisplayedId<'b>> {
+        C::display_id(self, id)
+    }
+}
+
+impl<'a> Cache<&'a str> for Vec<(&'a str, &'a str)> {
     type Error = ();
     type DisplayedId<'b> = &'b str where &'a str: 'b;
 

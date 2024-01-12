@@ -1,4 +1,4 @@
-use super::{layout, Render};
+use super::{layout_report, Render};
 use crate::{tree::Style, Cache, Report};
 use std::io;
 
@@ -13,7 +13,7 @@ impl<W: io::Write> crate::Backend for Ansi<W> {
         report: &Report<SourceId>,
         cache: &mut impl Cache<SourceId>,
     ) -> Result<(), Self::Error> {
-        let element = layout(report, cache);
+        let element = layout_report(report, cache);
         Self::render(&mut self.0, &element)
     }
 }

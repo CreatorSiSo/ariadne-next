@@ -1,4 +1,6 @@
-use crate::Color;
+use std::borrow::Cow;
+
+use crate::{Color, StyledStr};
 
 // TODO Replace with From<T>?
 pub trait Layout {
@@ -9,7 +11,6 @@ impl<T: std::fmt::Display> Layout for T {
     fn layout(self) -> Element {
         Element::Inline {
             text: self.to_string(),
-            style: Style::default(),
         }
     }
 }
@@ -18,12 +19,10 @@ impl<T: std::fmt::Display> Layout for T {
 #[derive(Debug, Clone)]
 pub enum Element {
     VStack {
-        children: Vec<Element>,
-        style: Style,
+        children: Vec<Styled<Element>>,
     },
     HStack {
-        children: Vec<Element>,
-        style: Style,
+        children: Vec<Styled<Element>>,
     },
     // Example of wrapping:
     // --------------------------------------------
@@ -41,96 +40,46 @@ pub enum Element {
     // | - Boxes with width                  |    |
     // --------------------------------------------
     Box {
-        children: Vec<Element>,
+        children: Vec<Styled<Element>>,
         /// Unicode width of the content
         /// - Some: Height is adjusted to fit the entire content
         /// - None: Height is always that of the tallest child
         width: Option<usize>,
-        style: Style,
     },
     Inline {
         text: String,
-        style: Style,
     },
 }
 
 impl Element {
-    pub fn vstack(elements: impl IntoIterator<Item = Element>) -> Self {
+    pub fn vstack(elements: impl IntoIterator<Item = Styled<Element>>) -> Self {
         Self::VStack {
             children: elements.into_iter().collect(),
-            style: Style::default(),
         }
     }
 
-    pub fn hstack(elements: impl IntoIterator<Item = Element>) -> Self {
+    pub fn hstack(elements: impl IntoIterator<Item = Styled<Element>>) -> Self {
         Self::HStack {
             children: elements.into_iter().collect(),
-            style: Style::default(),
         }
     }
 
-    pub fn box_(elements: impl IntoIterator<Item = Element>, width: Option<usize>) -> Self {
+    pub fn box_(elements: impl IntoIterator<Item = Styled<Element>>, width: Option<usize>) -> Self {
         Self::Box {
             children: elements.into_iter().collect(),
             width,
-            style: Style::default(),
         }
     }
 
     pub fn inline(text: impl ToString) -> Self {
         Self::Inline {
             text: text.to_string(),
-            style: Style::default(),
         }
     }
 
-    pub fn style(&self) -> &Style {
-        match self {
-            Element::VStack { style, .. } => style,
-            Element::HStack { style, .. } => style,
-            Element::Box { style, .. } => style,
-            Element::Inline { style, .. } => style,
-        }
+    pub fn styled(self, style: Style) -> Styled<Self> {
+        Styled::new(self, style)
     }
-}
-
-impl Styled<Element> for Element {
-    fn with_style(self, style: Style) -> Element {
-        match self {
-            Element::VStack {
-                children: elements, ..
-            } => Element::VStack {
-                children: elements,
-                style,
-            },
-            Element::HStack {
-                children: elements, ..
-            } => Element::HStack {
-                children: elements,
-                style,
-            },
-            Element::Box {
-                children: elements,
-                width,
-                ..
-            } => Element::Box {
-                children: elements,
-                width,
-                style,
-            },
-            Element::Inline { text, .. } => Element::Inline { text, style },
-        }
-    }
-}
-
-impl<T: Layout> Styled<Element> for T {
-    fn with_style(self, style: Style) -> Element {
-        self.layout().with_style(style)
-    }
-}
-
-pub trait Styled<T> {
-    fn with_style(self, style: Style) -> T;
 }
 
 #[derive(Debug, Default, Clone)]
@@ -148,17 +97,17 @@ impl Style {
         Self::default()
     }
 
-    pub fn with_fg(mut self, color: Color) -> Self {
+    pub fn fg(mut self, color: Color) -> Self {
         self.fg_color = Some(color);
         self
     }
 
-    pub fn with_bg(mut self, color: Color) -> Self {
+    pub fn bg(mut self, color: Color) -> Self {
         self.bg_color = Some(color);
         self
     }
 
-    pub fn with_bold(mut self) -> Self {
+    pub fn bold(mut self) -> Self {
         self.flags = match self.flags {
             TextStyleFlags::None | TextStyleFlags::Bold => TextStyleFlags::Bold,
             TextStyleFlags::Italic | TextStyleFlags::BoldItalic => TextStyleFlags::BoldItalic,
@@ -166,7 +115,7 @@ impl Style {
         self
     }
 
-    pub fn with_italic(mut self) -> Self {
+    pub fn italic(mut self) -> Self {
         self.flags = match self.flags {
             TextStyleFlags::None | TextStyleFlags::Italic => TextStyleFlags::Italic,
             TextStyleFlags::Bold | TextStyleFlags::BoldItalic => TextStyleFlags::BoldItalic,
@@ -190,6 +139,67 @@ impl Style {
 
     // TODO add set_bold and set_italic
 }
+
+#[derive(Debug)]
+pub struct Styled<T: std::fmt::Debug> {
+    inner: T,
+    style: Style,
+}
+
+impl<T: std::fmt::Debug> Styled<T> {
+    pub fn new(inner: T, style: Style) -> Self {
+        Self { inner, style }
+    }
+
+    pub fn default(inner: T) -> Self {
+        Self {
+            inner,
+            style: Style::default(),
+        }
+    }
+
+    pub fn map<O: std::fmt::Debug>(self, f: impl Fn(T) -> O) -> Styled<O> {
+        Styled::new(f(self.inner), self.style)
+    }
+
+    pub fn inner(&self) -> &T {
+        &self.inner
+    }
+
+    pub fn style(&self) -> &Style {
+        &self.style
+    }
+}
+
+impl<T: Clone + std::fmt::Debug> Clone for Styled<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            style: self.style.clone(),
+        }
+    }
+}
+
+pub trait StyleExt<'a>: std::fmt::Debug + Sized + Into<Cow<'a, str>> {
+    fn fg(self, color: Color) -> StyledStr<'a> {
+        Styled::new(self.into(), Style::new().fg(color))
+    }
+
+    fn bg(self, color: Color) -> StyledStr<'a> {
+        Styled::new(self.into(), Style::new().bg(color))
+    }
+
+    fn bold(self) -> StyledStr<'a> {
+        Styled::new(self.into(), Style::new().bold())
+    }
+
+    fn italic(self) -> StyledStr<'a> {
+        Styled::new(self.into(), Style::new().italic())
+    }
+}
+
+impl<'a> StyleExt<'a> for &'a str {}
+impl StyleExt<'_> for String {}
 
 #[derive(Debug, Default, Clone)]
 // TODO How and what information should this store? Bitflags?

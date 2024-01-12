@@ -1,10 +1,10 @@
-use crate::tree::{Element, Style};
+use crate::tree::{Element, Style, Styled};
 use std::io;
 use unicode_segmentation::{GraphemeIndices, UnicodeSegmentation};
 use unicode_width::UnicodeWidthStr;
 
 pub(super) trait Render {
-    fn render(writer: &mut impl io::Write, element: &Element) -> Result<(), io::Error> {
+    fn render(writer: &mut impl io::Write, element: &Styled<Element>) -> Result<(), io::Error> {
         let (_, height) = element_size(element);
         let mut lines = Vec::from_iter((0..height).map(|_| String::new()));
 
@@ -16,24 +16,18 @@ pub(super) trait Render {
         Ok(())
     }
 
-    fn render_element(lines: &mut [String], element: &Element) {
+    fn render_element(lines: &mut [String], element: &Styled<Element>) {
         Self::write_style_prefix(lines.first_mut().unwrap(), element.style());
-        match element {
-            Element::VStack {
-                children: elements, ..
-            } => Self::render_vstack(lines, elements),
-            Element::HStack {
-                children: elements, ..
-            } => Self::render_hstack(lines, elements),
-            Element::Box {
-                children: elements, ..
-            } => Self::render_box(lines, element, elements),
+        match element.inner() {
+            Element::VStack { children, .. } => Self::render_vstack(lines, children),
+            Element::HStack { children, .. } => Self::render_hstack(lines, children),
+            Element::Box { children, .. } => Self::render_box(lines, element, children),
             Element::Inline { text, .. } => lines[0].push_str(text),
         }
         Self::write_style_suffix(lines.last_mut().unwrap(), element.style());
     }
 
-    fn render_vstack(lines: &mut [String], elements: &[Element]) {
+    fn render_vstack(lines: &mut [String], elements: &[Styled<Element>]) {
         let mut start = 0;
         for element in elements {
             let (_, height) = element_size(element);
@@ -42,24 +36,24 @@ pub(super) trait Render {
         }
     }
 
-    fn render_hstack(lines: &mut [String], elements: &[Element]) {
+    fn render_hstack(lines: &mut [String], elements: &[Styled<Element>]) {
         for element in elements {
             fill_spaces(lines);
             Self::render_element(lines, element);
         }
     }
 
-    fn render_box(lines: &mut [String], box_: &Element, elements: &[Element]) {
+    fn render_box(lines: &mut [String], box_: &Styled<Element>, elements: &[Styled<Element>]) {
         fill_spaces(lines);
 
         let (bow_width, _) = element_size(box_);
         for element in elements {
-            if let Element::Inline { text, style } = element {
-                Self::write_style_prefix(lines.first_mut().unwrap(), style);
+            if let Element::Inline { text } = element.inner() {
+                Self::write_style_prefix(lines.first_mut().unwrap(), element.style());
                 for (index, chunk) in WidthChunks::new(text, bow_width).enumerate() {
                     lines[index].push_str(chunk);
                 }
-                Self::write_style_suffix(lines.last_mut().unwrap(), style);
+                Self::write_style_suffix(lines.last_mut().unwrap(), element.style());
                 continue;
             }
             Self::render_element(lines, element);
@@ -80,8 +74,8 @@ fn fill_spaces(lines: &mut [String]) {
 
 // TODO Does it make sense to avoid recalculations of the sizes?
 // TODO We could compute a tree of sizes, or attach the size to each element, ...
-fn element_size(element: &Element) -> (usize, usize) {
-    match element {
+fn element_size(element: &Styled<Element>) -> (usize, usize) {
+    match element.inner() {
         Element::VStack { children, .. } => children
             .iter()
             .map(element_size)
@@ -99,7 +93,7 @@ fn element_size(element: &Element) -> (usize, usize) {
 
 // TODO Refactor + more comments?
 /// See the documentation of [`Element::Box`] on what this computes
-fn box_size(children: &[Element], max_width: &Option<usize>) -> (usize, usize) {
+fn box_size(children: &[Styled<Element>], max_width: &Option<usize>) -> (usize, usize) {
     let Some(box_width) = max_width else {
         // No width is set, so nothing will be wrapped
         return children
@@ -118,7 +112,7 @@ fn box_size(children: &[Element], max_width: &Option<usize>) -> (usize, usize) {
     for element in children {
         let (elem_width, elem_height) = element_size(element);
 
-        if matches!(element, Element::Inline { .. }) {
+        if matches!(element.inner(), Element::Inline { .. }) {
             // Break text up over multiple rows
             box_height += (row_width + elem_width - box_width) / *box_width;
             row_width = (row_width + elem_width) % *box_width;
@@ -243,18 +237,21 @@ fn test_rendering() {
     impl Render for TestBackend {}
 
     let element = Element::vstack([
-        Element::inline("test1"),
+        Element::inline("test1").styled(Style::default()),
         Element::hstack([
-            Element::inline("1"),
-            Element::inline(" "),
-            Element::inline("2"),
+            Element::inline("1").styled(Style::default()),
+            Element::inline(" ").styled(Style::default()),
+            Element::inline("2").styled(Style::default()),
             Element::box_(
-                [Element::inline("#_#_#_#__#_#_#_##_#_#_#__#_#_#_#")],
+                [Element::inline("#_#_#_#__#_#_#_##_#_#_#__#_#_#_#").styled(Style::default())],
                 Some(8),
-            ),
-        ]),
-        Element::inline("test3"),
-    ]);
+            )
+            .styled(Style::default()),
+        ])
+        .styled(Style::default()),
+        Element::inline("test3").styled(Style::default()),
+    ])
+    .styled(Style::default());
     assert_eq!(element_size(&element), (11, 6));
 
     let mut writer = Vec::new();
