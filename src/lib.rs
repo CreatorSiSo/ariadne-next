@@ -22,7 +22,7 @@ pub enum ReportKind {
 
 // TODO Setting the styling should not be hard coded (and maybe happen later on)
 impl ReportKind {
-    fn styled(&self) -> Styled<Cow<'static, str>> {
+    fn styled(&self) -> StyledStr<'static> {
         let base_style = Style::new().bold();
 
         match self {
@@ -72,8 +72,8 @@ impl<'a, SourceId> Report<'a, SourceId> {
         self
     }
 
-    pub fn set_code(&mut self, code: impl Into<String>) {
-        self.code = Some(code.into());
+    pub fn set_code(&mut self, code: impl fmt::Display) {
+        self.code = Some(format!("{code:02}"));
     }
 
     pub fn with_view(mut self, view: SourceView<'a, SourceId>) -> Self {
@@ -142,7 +142,7 @@ impl<'a, Id> SourceView<'a, Id> {
 #[derive(Debug)]
 pub struct Label<'a> {
     span: Span,
-    message: Option<Vec<Styled<Cow<'a, str>>>>,
+    message: Option<Vec<StyledStr<'a>>>,
     color: Color,
 }
 

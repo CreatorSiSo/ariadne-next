@@ -180,7 +180,7 @@ impl<T: Clone + std::fmt::Debug> Clone for Styled<T> {
     }
 }
 
-pub trait StyleExt<'a>: std::fmt::Debug + Sized + Into<Cow<'a, str>> {
+pub trait StyleExt<'a>: Sized + Into<Cow<'a, str>> {
     fn fg(self, color: Color) -> StyledStr<'a> {
         Styled::new(self.into(), Style::new().fg(color))
     }
