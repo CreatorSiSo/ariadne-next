@@ -1,9 +1,11 @@
-use std::borrow::Cow;
 use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 use std::{fmt, fs, io};
 
 pub mod tree;
-use tree::{Style, Styled};
+
+mod style;
+pub use style::{Style, StyleExt};
+use style::{Styled, StyledStr, StyledText};
 
 mod backends;
 pub use backends::{Ansi, PlainText};
@@ -171,48 +173,6 @@ impl<'a> Label<'a> {
 
     pub fn set_color(&mut self, color: Color) {
         self.color = color;
-    }
-}
-
-type StyledStr<'a> = Styled<Cow<'a, str>>;
-
-impl<'a> From<&'a str> for StyledStr<'a> {
-    fn from(value: &'a str) -> Self {
-        Styled::new(value.into(), Style::default())
-    }
-}
-
-pub trait StyledText<'a> {
-    fn parts_vec(self) -> Vec<StyledStr<'a>>;
-}
-
-impl<'a> StyledText<'a> for &'a str {
-    fn parts_vec(self) -> Vec<StyledStr<'a>> {
-        vec![Styled::new(self.into(), Style::default())]
-    }
-}
-
-impl<'a> StyledText<'a> for String {
-    fn parts_vec(self) -> Vec<StyledStr<'a>> {
-        vec![Styled::new(self.into(), Style::default())]
-    }
-}
-
-impl<'a> StyledText<'a> for &[StyledStr<'a>] {
-    fn parts_vec(self) -> Vec<StyledStr<'a>> {
-        self.into()
-    }
-}
-
-impl<'a, const L: usize> StyledText<'a> for [StyledStr<'a>; L] {
-    fn parts_vec(self) -> Vec<StyledStr<'a>> {
-        self.into()
-    }
-}
-
-impl<'a> StyledText<'a> for Vec<StyledStr<'a>> {
-    fn parts_vec(self) -> Vec<StyledStr<'a>> {
-        self
     }
 }
 

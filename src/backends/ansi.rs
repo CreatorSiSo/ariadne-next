@@ -1,5 +1,5 @@
 use super::{layout_report, Render};
-use crate::{tree::Style, Cache, Report};
+use crate::{Cache, Report};
 use std::io;
 
 pub struct Ansi<W: io::Write>(pub W);
@@ -19,17 +19,17 @@ impl<W: io::Write> crate::Backend for Ansi<W> {
 }
 
 impl<W: io::Write> Render for Ansi<W> {
-    fn write_style_prefix(string: &mut String, style: &Style) {
+    fn write_style_prefix(string: &mut String, style: &crate::Style) {
         yansi::Style::from(style).fmt_prefix(string).unwrap();
     }
 
-    fn write_style_suffix(string: &mut String, style: &Style) {
+    fn write_style_suffix(string: &mut String, style: &crate::Style) {
         yansi::Style::from(style).fmt_suffix(string).unwrap();
     }
 }
 
-impl From<&crate::tree::Style> for yansi::Style {
-    fn from(value: &crate::tree::Style) -> Self {
+impl From<&crate::Style> for yansi::Style {
+    fn from(value: &crate::Style) -> Self {
         let mut style = yansi::Style::default();
         if let Some(fg_color) = &value.fg_color {
             style = style.fg(*fg_color);

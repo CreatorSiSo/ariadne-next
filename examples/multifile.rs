@@ -1,4 +1,4 @@
-use ariadne_next::{tree::StyleExt, Ansi, Color, Label, Report, ReportKind, SourceView};
+use ariadne_next::{Ansi, Color, Label, Report, ReportKind, SourceView, StyleExt};
 
 fn main() {
     let mut backend = Ansi(std::io::stdout().lock());
@@ -9,7 +9,7 @@ fn main() {
 
     Report::new(ReportKind::Error)
         .with_code(3)
-        .with_message(format!("Cannot add types Nat and Str"))
+        .with_message("Cannot add types Nat and Str")
         .with_view(
             SourceView::new("b.tao", 10)
                 .with_label(

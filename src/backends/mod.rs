@@ -1,5 +1,6 @@
-use crate::tree::{Element, Style, Styled};
-use crate::{Cache, Label, Report, ReportKind, SourceView, Span, StyledStr};
+use crate::style::{Style, Styled, StyledStr};
+use crate::tree::Element;
+use crate::{Cache, Label, Report, ReportKind, SourceView, Span};
 
 mod render;
 use render::Render;

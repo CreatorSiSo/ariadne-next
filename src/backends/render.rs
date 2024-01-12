@@ -1,4 +1,4 @@
-use crate::tree::{Element, Style, Styled};
+use crate::{style::Styled, tree::Element, Style};
 use std::io;
 use unicode_segmentation::{GraphemeIndices, UnicodeSegmentation};
 use unicode_width::UnicodeWidthStr;
