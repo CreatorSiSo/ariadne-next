@@ -1,14 +1,14 @@
 use crate::Color;
 use std::borrow::Cow;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Style {
     /// Color of the text
-    pub fg_color: Option<Color>,
+    pub(crate) foreground: Color,
     /// Color of the background
-    pub bg_color: Option<Color>,
+    pub(crate) background: Color,
     /// Additional formatting data
-    flags: TextStyleFlags,
+    flags: StyleFlags,
 }
 
 impl Style {
@@ -17,51 +17,45 @@ impl Style {
     }
 
     pub fn fg(mut self, color: Color) -> Self {
-        self.fg_color = Some(color);
+        self.foreground = color;
         self
     }
 
     pub fn bg(mut self, color: Color) -> Self {
-        self.bg_color = Some(color);
+        self.background = color;
         self
     }
 
     pub fn bold(mut self) -> Self {
         self.flags = match self.flags {
-            TextStyleFlags::None | TextStyleFlags::Bold => TextStyleFlags::Bold,
-            TextStyleFlags::Italic | TextStyleFlags::BoldItalic => TextStyleFlags::BoldItalic,
+            StyleFlags::None | StyleFlags::Bold => StyleFlags::Bold,
+            StyleFlags::Italic | StyleFlags::BoldItalic => StyleFlags::BoldItalic,
         };
         self
     }
 
     pub fn italic(mut self) -> Self {
         self.flags = match self.flags {
-            TextStyleFlags::None | TextStyleFlags::Italic => TextStyleFlags::Italic,
-            TextStyleFlags::Bold | TextStyleFlags::BoldItalic => TextStyleFlags::BoldItalic,
+            StyleFlags::None | StyleFlags::Italic => StyleFlags::Italic,
+            StyleFlags::Bold | StyleFlags::BoldItalic => StyleFlags::BoldItalic,
         };
         self
     }
 
     pub fn is_bold(&self) -> bool {
-        matches!(
-            self.flags,
-            TextStyleFlags::Bold | TextStyleFlags::BoldItalic
-        )
+        matches!(self.flags, StyleFlags::Bold | StyleFlags::BoldItalic)
     }
 
     pub fn is_italic(&self) -> bool {
-        matches!(
-            self.flags,
-            TextStyleFlags::Italic | TextStyleFlags::BoldItalic
-        )
+        matches!(self.flags, StyleFlags::Italic | StyleFlags::BoldItalic)
     }
 
     // TODO add set_bold and set_italic
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 // TODO How and what information should this store? Bitflags?
-enum TextStyleFlags {
+enum StyleFlags {
     #[default]
     None,
     Bold,

@@ -30,19 +30,17 @@ impl<W: io::Write> Render for Ansi<W> {
 
 impl From<&crate::Style> for yansi::Style {
     fn from(value: &crate::Style) -> Self {
-        let mut style = yansi::Style::default();
-        if let Some(fg_color) = &value.fg_color {
-            style = style.fg(*fg_color);
-        }
-        if let Some(bg_color) = &value.bg_color {
-            style = style.bg(*bg_color);
-        }
+        let mut style = yansi::Style::default()
+            .fg(value.foreground)
+            .bg(value.background);
+
         if value.is_bold() {
             style = style.bold();
         }
         if value.is_italic() {
             style = style.italic();
         }
+
         style
     }
 }

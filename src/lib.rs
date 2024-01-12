@@ -20,6 +20,7 @@ pub enum ReportKind {
     Warning,
     Help,
     Note,
+    Custom(&'static str, Style),
 }
 
 // TODO Setting the styling should not be hard coded (and maybe happen later on)
@@ -32,6 +33,7 @@ impl ReportKind {
             ReportKind::Warning => Styled::new("Warning".into(), base_style.fg(Color::Yellow)),
             ReportKind::Help => Styled::new("Help".into(), base_style.fg(Color::Blue)),
             ReportKind::Note => Styled::new("Note".into(), base_style.fg(Color::Green)),
+            ReportKind::Custom(name, style) => Styled::new((*name).into(), *style),
         }
     }
 }
